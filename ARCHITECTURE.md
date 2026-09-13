@@ -394,7 +394,7 @@ print-farm-manager/
 | HTTP client | `axios` | PrusaLink API calls from server to printers |
 | Frontend | `react` + `vite` | Vite dev server on port 5173; proxies `/api` to port 3000 |
 | CSV parsing | `papaparse` | Parses printer import spreadsheet |
-| Dev runner | `concurrently` | Runs server and client together with one `npm run dev` |
+| Dev runner | `concurrently` | Runs server and client together with one `pnpm dev` |
 
 ### 11.3 Database Schema
 
@@ -506,7 +506,7 @@ Phase 1 is complete when **all 7** of the following pass. Do not declare Phase 1
 
 | # | Acceptance Criterion |
 |---|---|
-| 1 | `npm run dev` from the project root starts both Express (port 3000) and Vite (port 5173) with one command |
+| 1 | `pnpm dev` from the project root starts both Express (port 3000) and Vite (port 5173) with one command |
 | 2 | SQLite database is created automatically on first run with all five tables present and correct |
 | 3 | A CSV matching the known column format can be uploaded via the Settings screen and all valid rows are imported as printer records |
 | 4 | The polling loop starts on server boot and queries every imported printer every 15 seconds |
@@ -951,7 +951,7 @@ No schema migration required. The existing columns are sufficient:
 The Elegoo driver will need `ws` (the `websocket` npm package) for Node.js WebSocket client support. Axios is HTTP-only.
 
 ```bash
-npm install ws
+pnpm add -w ws
 ```
 
 ### 13.8 What NOT to Build in Phase 6

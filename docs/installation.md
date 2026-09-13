@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers installing Print Farm Manager on a dedicated machine that sits on the same local network as your printer fleet. Steps that differ between **Windows** and **macOS** are clearly labelled. Where instructions are the same on both platforms, no label is shown.
+This guide covers installing Synth Yard on a dedicated machine that sits on the same local network as your printer fleet. Steps that differ between **Windows** and **macOS** are clearly labelled. Where instructions are the same on both platforms, no label is shown.
 
 > **Running in Docker instead?** This guide covers a bare-metal Node.js + PM2 install. If you'd rather run the app in a container (no local Node.js or build tooling required), see the **Docker** section in the [README](../README.md#installation-production) — it uses the `Dockerfile` and `docker-compose.yml` at the repo root and handles everything below (build, port, auto-restart, persistent data) through Docker instead.
 
@@ -10,10 +10,10 @@ This guide covers installing Print Farm Manager on a dedicated machine that sits
 
 ### Node.js
 
-Print Farm Manager requires **Node.js 22 LTS**. Use the 22 LTS release specifically — Node 24+ has known issues compiling the native SQLite dependency on Windows.
+Synth Yard uses **Node.js 26**, pinned to **26.8.1** in `.node-version` and `.nvmrc`. Use the same Node major version for installation and startup so the native SQLite binary matches.
 
 **Windows**
-1. Go to [https://nodejs.org](https://nodejs.org) and download the **22 LTS** installer (`.msi`).
+1. Go to [https://nodejs.org](https://nodejs.org) and download the **26.8.1 Current** installer (`.msi`).
 2. Run the installer with default options. Ensure **"Add to PATH"** is checked (it is by default).
 3. Open a new Command Prompt and verify:
    ```
@@ -26,7 +26,7 @@ Print Farm Manager requires **Node.js 22 LTS**. Use the 22 LTS release specifica
 The recommended approach is [Homebrew](https://brew.sh). If you do not have Homebrew installed, the one-line installer is at [https://brew.sh](https://brew.sh).
 
 ```
-brew install node@22
+brew install node
 ```
 
 Alternatively, download the macOS `.pkg` installer from [https://nodejs.org](https://nodejs.org).
@@ -39,9 +39,26 @@ npm --version
 
 ---
 
+### pnpm
+
+Install the package manager version pinned in `package.json`:
+
+```
+npm install --global pnpm@12.3.4
+pnpm --version
+```
+
+One `pnpm install --frozen-lockfile` at the repository root installs both the server
+and client. Do not mix npm installs with pnpm installs. When migrating an existing
+checkout, remove only `node_modules` and `client/node_modules` before installing;
+keep `server/data` and `server/gcode` intact. After changing Node majors, reinstall
+these dependency directories to obtain the matching SQLite native binary.
+
+---
+
 ### Native Build Dependencies
 
-`better-sqlite3` compiles a native binary during `npm install`. Each platform needs the right build tools available or the install will fail.
+`better-sqlite3` downloads a prebuilt binary during `pnpm install` when available. Otherwise it compiles locally using the tools below. The workspace explicitly allows its build script and preserves the existing SDCP patch through pnpm.
 
 **Windows**
 `better-sqlite3` requires a C++ compiler. The easiest way to get one is during the Node.js install itself:
@@ -110,15 +127,15 @@ Before adding printers to the app, gather the following credentials. The app wil
 
 **Windows** — open Command Prompt or PowerShell in the folder where you want to install (e.g. `C:\PrintFarm`):
 ```
-git clone https://github.com/joeltelling/print-farm-manager.git
-cd print-farm-manager
+git clone https://github.com/eduardoribeiro/synth-yard.git
+cd synth-yard
 ```
 
 **macOS** — open Terminal and navigate to your preferred location (e.g. `~/PrintFarm`):
 ```
 mkdir -p ~/PrintFarm && cd ~/PrintFarm
-git clone https://github.com/joeltelling/print-farm-manager.git
-cd print-farm-manager
+git clone https://github.com/eduardoribeiro/synth-yard.git
+cd synth-yard
 ```
 
 ### Option B — Download ZIP
@@ -126,32 +143,18 @@ cd print-farm-manager
 1. Go to the GitHub repository page.
 2. Click **Code → Download ZIP**.
 3. Extract the ZIP:
-   - **Windows:** to a folder such as `C:\PrintFarm\print-farm-manager`
-   - **macOS:** to a folder such as `~/PrintFarm/print-farm-manager`
+   - **Windows:** to a folder such as `C:\PrintFarm\synth-yard`
+   - **macOS:** to a folder such as `~/PrintFarm/synth-yard`
 4. Open a terminal and `cd` into that folder.
 
 ---
 
 ## Installation
 
-Run the following from inside the `print-farm-manager` folder:
+Run the following from the repository root to install server and client dependencies:
 
 ```
-npm install
-```
-
-Then install client dependencies. On Windows, use the `--legacy-peer-deps` flag to avoid peer dependency conflicts:
-
-**Windows:**
-```
-cd client
-npm install --legacy-peer-deps
-cd ..
-```
-
-**macOS:**
-```
-cd client && npm install && cd ..
+pnpm install --frozen-lockfile
 ```
 
 ### Build the client
@@ -159,7 +162,7 @@ cd client && npm install && cd ..
 Before running in production, build the React client into static files:
 
 ```
-npm run build
+pnpm build
 ```
 
 This only needs to be re-run after an update — see [Updating](#updating).
@@ -168,9 +171,9 @@ This only needs to be re-run after an update — see [Updating](#updating).
 
 ## Network Setup
 
-The machine running Print Farm Manager must be on the **same local network** as your printers. All communication happens over HTTP directly to each printer's IP address — no internet connection is required.
+The machine running Synth Yard must be on the **same local network** as your printers. All communication happens over HTTP directly to each printer's IP address — no internet connection is required.
 
-Print Farm Manager runs as a single server on **port 3000** that serves both the API and the web UI. Any browser on the same network can access it.
+Synth Yard runs as a single server on **port 3000** that serves both the API and the web UI. Any browser on the same network can access it.
 
 ### Finding the machine's IP address
 
@@ -197,7 +200,7 @@ Windows Firewall may block connections from other devices on the network. To all
 2. Click **Inbound Rules → New Rule**.
 3. Select **Port**, click Next.
 4. Select **TCP**, enter `3000`, click Next.
-5. Select **Allow the connection**, click Next through the remaining steps and name the rule `Print Farm Manager`.
+5. Select **Allow the connection**, click Next through the remaining steps and name the rule `Synth Yard`.
 
 **macOS**
 macOS does not block outbound connections and generally allows LAN traffic by default. If you have manually enabled the macOS Application Firewall (System Settings → Network → Firewall), you may need to add an exception, but most users will not need to do anything here.
@@ -206,10 +209,10 @@ macOS does not block outbound connections and generally allows LAN traffic by de
 
 ## Running the Server
 
-From the `print-farm-manager` folder:
+From the `synth-yard` folder:
 
 ```
-npm start
+pnpm start
 ```
 
 You should see:
@@ -225,7 +228,7 @@ You should see:
 
 To stop the server, press `Ctrl + C` in the terminal.
 
-> **Development mode:** If you are actively developing the app, `npm run dev` starts both the Express server and the Vite dev server with hot reload. This is not needed for normal farm operation. Prefer Docker? `docker compose up --build print-farm-manager-dev` runs the same workflow in a container — see the **[README](../README.md#quick-start-development)**.
+> **Development mode:** If you are actively developing the app, `pnpm dev` starts both the Express server and the Vite dev server with hot reload. This is not needed for normal farm operation. Prefer Docker? `docker compose up --build synth-yard-dev` runs the same workflow in a container — see the **[README](../README.md#quick-start-development)**.
 
 ---
 
@@ -270,7 +273,7 @@ For farms with many printers, use the **CSV Import** on the Settings page instea
 
 ## Keeping It Running (Auto-start on Boot)
 
-Running `npm start` manually is fine for testing, but a farm machine should start the server automatically on boot and restart it if it crashes. **PM2** is a Node.js process manager that handles this on both platforms.
+Running `pnpm start` manually is fine for testing, but a farm machine should start the server automatically on boot and restart it if it crashes. **PM2** is a Node.js process manager that handles this on both platforms.
 
 ### Install PM2
 
@@ -285,18 +288,18 @@ npm install --global pm2-windows-startup
 npm install --global pm2
 ```
 
-### Start Print Farm Manager with PM2
+### Start Synth Yard with PM2
 
-From the `print-farm-manager` folder (same on both platforms):
+From the `synth-yard` folder (same on both platforms):
 ```
-pm2 start npm --name "print-farm-manager" -- start
+pm2 start server/index.js --name "synth-yard"
 ```
 
 Verify it is running:
 ```
 pm2 list
 ```
-You should see `print-farm-manager` with status `online`.
+You should see `synth-yard` with status `online`.
 
 ### Enable Auto-start on Boot
 
@@ -315,24 +318,24 @@ PM2 will print a command beginning with `sudo env PATH=...` — copy and run tha
 pm2 save
 ```
 
-Print Farm Manager will now start automatically whenever the machine boots, with no login required.
+Synth Yard will now start automatically whenever the machine boots, with no login required.
 
 ### Useful PM2 Commands
 
 | Command | What it does |
 |---|---|
 | `pm2 list` | Show all running processes and their status |
-| `pm2 logs print-farm-manager` | Stream live server logs |
-| `pm2 logs print-farm-manager --lines 100` | Show last 100 log lines |
-| `pm2 restart print-farm-manager` | Restart the server |
-| `pm2 stop print-farm-manager` | Stop the server |
-| `pm2 delete print-farm-manager` | Remove it from PM2 entirely |
+| `pm2 logs synth-yard` | Stream live server logs |
+| `pm2 logs synth-yard --lines 100` | Show last 100 log lines |
+| `pm2 restart synth-yard` | Restart the server |
+| `pm2 stop synth-yard` | Stop the server |
+| `pm2 delete synth-yard` | Remove it from PM2 entirely |
 
 ---
 
 ## Data & File Storage
 
-All persistent data lives inside the `print-farm-manager` folder:
+All persistent data lives inside the `synth-yard` folder:
 
 | Path | Contents |
 |---|---|
@@ -343,17 +346,17 @@ Neither folder is tracked by Git — they are created automatically on first run
 
 ### Backup
 
-Use the **Farm Backup** tool in the app's Settings page to export a full snapshot of your farm (printers, projects, parts, G-code files, and job history) as a single `.json` file. You can restore from this file on any machine running Print Farm Manager.
+Use the **Farm Backup** tool in the app's Settings page to export a full snapshot of your farm (printers, projects, parts, G-code files, and job history) as a single `.json` file. You can restore from this file on any machine running Synth Yard.
 
 For an additional low-level backup, copy `server/data/farm.db` and `server/gcode/` to a safe location. Restoring is as simple as copying them back.
 
 ### Moving to a new machine
 
 1. On the old machine, go to **Settings → Farm Backup → Export Farm** and save the `.json` file.
-2. Install Print Farm Manager on the new machine following this guide.
+2. Install Synth Yard on the new machine following this guide.
 3. Go to **Settings → Farm Backup**, select the `.json` file, and click **Restore Farm**.
 
-Alternatively, copy the entire `print-farm-manager` folder to the new machine — the database and G-code files are included. After copying, delete `node_modules` and `client/node_modules` and run `npm install` fresh (native dependencies must be compiled for the new machine's OS and Node version).
+Alternatively, copy the entire `synth-yard` folder to the new machine — the database and G-code files are included. After copying, delete `node_modules` and `client/node_modules` and run `pnpm install --frozen-lockfile` fresh (native dependencies must be compiled for the new machine's OS and Node version).
 
 ---
 
@@ -362,25 +365,22 @@ Alternatively, copy the entire `print-farm-manager` folder to the new machine �
 ### Windows — using update.bat
 
 Double-click `update.bat` in the repo root (or run it from a Command Prompt). It will:
-1. Discard any local `package-lock.json` drift, then `git pull` the latest code
-2. `npm install` server dependencies
-3. Build the React client (`client/npm install` + `npm run build`)
+1. `git pull` the latest code (local changes are preserved; resolve conflicts if needed)
+2. `pnpm install --frozen-lockfile` for the complete workspace
+3. Build the React client with `pnpm build`
 4. Kill the process on port 3000 and start the server in the foreground
-
-The lockfile discard in step 1 exists because `npm install` rewrites `package-lock.json` whenever the machine's npm version differs from the one that generated it. Without the discard, `git pull` fails with "Your local changes to the following files would be overwritten by merge: package-lock.json" the next time the lockfile changes upstream. If you hit that error on an older copy of `update.bat`, run `git restore package-lock.json` in the repo folder and update again.
 
 The server runs in the bat's window — closing the window stops the server.
 
-> **Note:** `update.bat` uses `call npm ...` for all npm commands. If you are writing your own Windows batch scripts that invoke npm, you must use `call npm` — without `call`, the batch script exits silently when npm finishes because `npm.cmd` is a `.cmd` file.
+> **Note:** `update.bat` uses `call pnpm ...` for all pnpm commands. If you are writing your own Windows batch scripts that invoke pnpm, you must use `call pnpm` — without `call`, the batch script exits silently when pnpm finishes because `pnpm.cmd` is a `.cmd` file.
 
 ### macOS / Linux — manual steps
 
 ```
 git pull
-npm install
-cd client && npm install && cd ..
-npm run build
-pm2 restart print-farm-manager
+pnpm install --frozen-lockfile
+pnpm build
+pm2 restart synth-yard
 ```
 
 ### ZIP install
@@ -390,25 +390,24 @@ pm2 restart print-farm-manager
 3. Copy `server/data/` and `server/gcode/` from the old folder into the new one.
 4. Run the install and build steps in the new folder:
    ```
-   npm install
-   cd client && npm install --legacy-peer-deps && cd ..
-   npm run build
+   pnpm install --frozen-lockfile
+   pnpm build
    ```
 5. Update PM2 to point at the new folder:
 
 **Windows:**
 ```
-pm2 delete print-farm-manager
-cd C:\PrintFarm\print-farm-manager-NEW
-pm2 start npm --name "print-farm-manager" -- start
+pm2 delete synth-yard
+cd C:\PrintFarm\synth-yard-NEW
+pm2 start server/index.js --name "synth-yard"
 pm2 save
 ```
 
 **macOS:**
 ```
-pm2 delete print-farm-manager
-cd ~/PrintFarm/print-farm-manager-NEW
-pm2 start npm --name "print-farm-manager" -- start
+pm2 delete synth-yard
+cd ~/PrintFarm/synth-yard-NEW
+pm2 start server/index.js --name "synth-yard"
 pm2 save
 ```
 
@@ -419,7 +418,7 @@ pm2 save
 **`node` or `npm` not found after installing Node.js**
 Restart your machine. The PATH change from the installer requires a full restart to take effect.
 
-**`npm install` fails with a native build error**
+**`pnpm install --frozen-lockfile` fails with a native build error**
 
 *Windows* — install Visual Studio Build Tools 2022. Run this in an Administrator PowerShell:
 ```
@@ -436,27 +435,25 @@ npm install -g node-gyp
 xcode-select --install
 ```
 
-Then retry `npm install`.
+Then retry `pnpm install --frozen-lockfile`.
 
 **`better_sqlite3.node is not a valid Win32 application`**
 The native SQLite binary was compiled for a different operating system (e.g. the `node_modules` folder was copied from a Mac). Delete it and reinstall on the Windows machine:
 ```
 rmdir /s /q node_modules
 rmdir /s /q client\node_modules
-npm install
-cd client && npm install --legacy-peer-deps && cd ..
-npm run build
+pnpm install --frozen-lockfile
+pnpm build
 ```
 
-**`npm install` in `client/` reports dependency conflicts on Windows**
-Run with the `--legacy-peer-deps` flag:
-```
-npm install --legacy-peer-deps
-```
+**Native module version mismatch after switching Node versions**
+Use Node 26 for both installing and running the application. Remove the root and
+client dependency directories, then run `pnpm install --frozen-lockfile` from the
+repository root. This reinstalls binaries for the current Node version.
 
 **UI loads but shows no printers / API errors**
 - Confirm the server is running: `pm2 list`
-- Check server logs: `pm2 logs print-farm-manager`
+- Check server logs: `pm2 logs synth-yard`
 - Confirm port 3000 is not blocked (Windows: check Firewall rules; macOS: check if Application Firewall is on)
 
 **Printers show as OFFLINE**

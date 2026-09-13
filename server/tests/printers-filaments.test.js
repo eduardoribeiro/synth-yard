@@ -63,6 +63,7 @@ beforeAll(() => {
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
     INSERT INTO printer_models VALUES ('mk4s', 'MK4S', 'prusa');
+    INSERT INTO printer_models VALUES ('k1', 'Creality K1', 'creality');
   `);
 
   // Seed printers with varied groups/materials/colors
@@ -256,5 +257,41 @@ describe('printer_groups auto-registration', () => {
     // this is the exact bug the registry exists to fix.
     expect(db.prepare('SELECT COUNT(*) AS c FROM printers WHERE group_name = ?').get('Rack Solo').c).toBe(0);
     expect(db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Rack Solo')).toBeTruthy();
+  });
+});
+
+describe('Creality setup', () => {
+  test('creates and edits a Creality printer without an API key', async () => {
+    const added = await request(app).post('/api/printers').send({
+      name: 'K1_01', ip: '192.168.1.50', type: 'creality', model: 'k1',
+    });
+    expect(added.status).toBe(201);
+    expect(added.body.api_key).toBe('');
+    expect(added.body.type).toBe('creality');
+    const edited = await request(app).put(`/api/printers/${added.body.id}`).send({ ip: '192.168.1.51' });
+    expect(edited.status).toBe(200);
+    expect(edited.body.ip).toBe('192.168.1.51');
+    expect(edited.body.type).toBe('creality');
+  });
+
+  test('imports Creality printers without an api_key column', async () => {
+    const csv = 'name,ip,type,model\nK1_CSV,192.168.1.52,creality,k1\n';
+    const res = await request(app).post('/api/printers/import')
+      .attach('file', Buffer.from(csv), 'printers.csv');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ imported: 1, skipped: 0, flagged: [] });
+  });
+
+  test('raw status uses the Creality driver', async () => {
+    const drivers = require('../drivers');
+    const spy = jest.spyOn(drivers, 'getDriver').mockReturnValue({
+      getRawStatus: jest.fn().mockResolvedValue({ deviceState: 1, printFileName: 'part.gcode' }),
+    });
+    try {
+      const id = db.prepare("SELECT id FROM printers WHERE name = 'K1_01'").get().id;
+      const res = await request(app).get(`/api/printers/${id}/raw-status`);
+      expect(res.body.raw).toEqual({ deviceState: 1, printFileName: 'part.gcode' });
+      expect(spy).toHaveBeenCalledWith('creality');
+    } finally { spy.mockRestore(); }
   });
 });

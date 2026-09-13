@@ -1,19 +1,21 @@
 {
-  "name": "print-farm-manager",
+  "name": "synth-yard",
   "version": "1.0.0",
-  "description": "Centralized print farm management for multi-brand 3D printer fleets",
-  "author": "Joel Telling",
+  "description": "Open-source, self-hosted 3D printer fleet management",
+  "author": "Eduardo Ribeiro",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joeltelling/print-farm-manager.git"
+    "url": "https://github.com/eduardoribeiro/synth-yard.git"
   },
   "engines": {
-    "node": ">=22.0.0 <24"
+    "node": ">=26.0.0 <27"
   },
   "keywords": [
     "3d-printing",
     "print-farm",
+    "printer-fleet",
+    "synth-yard",
     "prusa",
     "bambu",
     "klipper",
@@ -21,18 +23,17 @@
     "self-hosted"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": "concurrently \"pnpm run server\" \"pnpm run client\"",
     "server": "node server/index.js",
-    "client": "npm run dev --prefix client",
-    "build": "npm run build --prefix client",
+    "client": "pnpm --dir client dev",
+    "build": "pnpm --dir client build",
     "start": "node server/index.js",
-    "test": "jest --testPathPatterns=server/tests",
-    "postinstall": "patch-package"
+    "test": "jest --testPathPatterns=server/tests"
   },
   "dependencies": {
     "axios": "^1.7.2",
     "basic-ftp": "^5.2.1",
-    "better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^13.0.3",
     "concurrently": "^8.2.2",
     "express": "^4.19.2",
     "form-data": "^4.0.5",
@@ -43,7 +44,8 @@
   },
   "devDependencies": {
     "jest": "^30.3.0",
-    "patch-package": "^8.0.1",
     "supertest": "^7.2.2"
-  }
+  },
+  "private": true,
+  "packageManager": "pnpm@12.3.4"
 }

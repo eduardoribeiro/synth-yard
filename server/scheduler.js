@@ -421,16 +421,20 @@ class JobScheduler extends EventEmitter {
     // We wait 60 s before retrying in that case — much longer than the 5 s used for other errors.
     const MAX_RETRIES = 2;
     let lastErr = null;
+    let attempts = 0;
 
     this._activeUploads.add(printer.id);
     try {
       for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        attempts = attempt;
         try {
           await driver.uploadAndPrint(printer, gcodeFullPath, candidate.filename, { amsSlot: candidate.ams_slot });
           lastErr = null;
           break;
         } catch (err) {
           lastErr = err;
+          // Some protocols cannot safely replay an unconfirmed start command.
+          if (err.retryable === false) break;
           if (attempt <= MAX_RETRIES) {
             const isConflict = err.code === 'UPLOAD_CONFLICT';
             const waitMs = isConflict ? 60000 : 5000;
@@ -451,7 +455,8 @@ class JobScheduler extends EventEmitter {
       // This handles the case where our request timed out but the printer
       // received the file and started the job anyway. If it is printing, treat
       // the upload as a success so the job is tracked correctly.
-      const isActuallyPrinting = await driver.checkIfPrinting(printer);
+      const isActuallyPrinting = lastErr.recoverable !== false
+        && await driver.checkIfPrinting(printer, candidate.filename);
       if (isActuallyPrinting) {
         this.db.prepare(`UPDATE jobs SET status = 'printing', started_at = ? WHERE id = ?`).run(Date.now(), jobId);
         console.log(`[scheduler] ${printer.name} upload appeared to fail but printer is printing — job ${jobId} recovered`);
@@ -465,9 +470,9 @@ class JobScheduler extends EventEmitter {
       // Never auto-fail here — the operator decides.
       this.db.prepare('UPDATE printers SET is_held = 1 WHERE id = ?').run(printer.id);
       notifications.add(
-        `Upload to ${printer.name} failed after ${MAX_RETRIES + 1} attempts — check the printer and confirm the outcome in Fleet.`
+        `Upload to ${printer.name} failed after ${attempts} attempt(s) — check the printer and confirm the outcome in Fleet.`
       );
-      console.error(`[scheduler] ${printer.name} upload failed after ${MAX_RETRIES + 1} attempts — held, job ${jobId} left as uploading for operator confirmation`);
+      console.error(`[scheduler] ${printer.name} upload failed after ${attempts} attempt(s) — held, job ${jobId} left as uploading for operator confirmation`);
       return null;
     }
 

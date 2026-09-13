@@ -7,7 +7,7 @@ const events = require('../events');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const NO_API_KEY_TYPES = new Set(['elegoo-centauri', 'klipper']); // types that store no api_key
+const NO_API_KEY_TYPES = new Set(['elegoo-centauri', 'klipper', 'creality']); // types that store no api_key
 
 // Normalize a raw model string to a canonical ID (lowercase, trimmed).
 // Validation against the registered model list is done via DB query at each call site.
@@ -428,6 +428,10 @@ module.exports = (db) => {
     const printer = db.prepare('SELECT * FROM printers WHERE id = ?').get(req.params.id);
     if (!printer) return res.status(404).json({ error: 'Printer not found' });
     try {
+      if (printer.type === 'creality') {
+        const raw = await require('../drivers').getDriver(printer.type).getRawStatus(printer);
+        return res.json({ printer: { id: printer.id, name: printer.name, ip: printer.ip }, raw });
+      }
       const response = await axios.get(`http://${printer.ip}/api/v1/status`, {
         headers: { 'X-Api-Key': printer.api_key },
         timeout: 8000,
