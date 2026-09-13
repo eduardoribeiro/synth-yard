@@ -83,7 +83,7 @@ describe('POST /api/models', () => {
   });
 
   test('accepts all valid connectors', async () => {
-    const connectors = ['prusa', 'elegoo-centauri', 'elegoo-centauri2', 'bambu'];
+    const connectors = ['prusa', 'elegoo-centauri', 'elegoo-centauri2', 'bambu', 'klipper', 'octoprint', 'creality'];
     for (const [i, connector] of connectors.entries()) {
       const res = await request(app)
         .post('/api/models')

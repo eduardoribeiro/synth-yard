@@ -12,6 +12,7 @@ const LOADERS = {
   'elegoo-centauri2': () => require('./elegoo-centauri2'),
   'bambu':            () => require('./bambu'),
   'klipper':          () => require('./klipper'),
+  'creality':         () => require('./creality'),
   'octoprint':        () => require('./octoprint'),
 };
 

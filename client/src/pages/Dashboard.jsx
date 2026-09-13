@@ -201,7 +201,7 @@ export default function Dashboard() {
           <div style={{ width: 4, height: 36, background: '#1d4ed8', borderRadius: 2, flexShrink: 0 }} />
           <div>
             <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '0.05em', color: '#f1f5f9' }}>
-              PRINT FARM
+              SYNTH YARD
             </div>
             <div style={{ fontSize: 11, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>
               Command Center

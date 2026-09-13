@@ -108,7 +108,7 @@ If you touch one side of a pair, grep for and update the other in the same commi
 Every bar is a checklist. A deliverable is done when every box is checked, not when it "looks good".
 
 **Baseline for any code change:**
-- [ ] `npm test` passes in full (24 suites, ~378 tests; no skips added)
+- [ ] `pnpm test` passes in full (24 suites, ~378 tests; no skips added)
 - [ ] The relevant docs/ component file reflects the new behavior
 - [ ] docs/CHANGELOG.md has a new dated entry at the top: `## YYYY-MM-DD: short title`, prose explaining what and why (including the real-world trigger if it was a bug), then a `### Changes` bullet list of `path: what changed`
 - [ ] `git diff` of prose and comments shows no em/en dashes (`grep -P '[\x{2013}\x{2014}]'` on changed files)
@@ -127,7 +127,7 @@ Every bar is a checklist. A deliverable is done when every box is checked, not w
 - [ ] The full checklist in .claude/skills/add-connector/SKILL.md (contract, registration touchpoints, mocked tests, docs, honest hardware status)
 
 **Client change, additionally:**
-- [ ] `npm run build` succeeds
+- [ ] `pnpm build` succeeds
 - [ ] Toast/confirm rules followed; loading state exists; palette copied from an existing page
 - [ ] Works at the 600 px breakpoint if layout changed
 
@@ -144,7 +144,7 @@ Ask Joel before acting when any of these is true. Otherwise act, and flag assump
 
 1. **completed_qty:** the change adds or alters any path that increments or decrements `parts.completed_qty`, beyond mechanically preserving existing behavior. Present the analysis first: what unique real-world event backs the credit, and why it cannot double-fire across restart, reconnect, or poll flap.
 2. **Schema:** anything beyond an additive `ALTER TABLE ADD COLUMN` or new `CREATE TABLE IF NOT EXISTS`.
-3. **Dependencies:** any new runtime dependency (native modules doubly so; remember Windows plus Node 22/23).
+3. **Dependencies:** any new runtime dependency (native modules doubly so; remember Windows plus Node 26).
 4. **Public onboarding docs:** restructuring README.md or docs/installation.md. Small accuracy fixes are fine autonomously.
 5. **Scope growth:** the fix "wants" a new page, subsystem, or feature surface, or touches a parked feature (filament tracking, camera streaming, diagnostics panel, multi-group).
 6. **Protocol dead end:** official docs for a protocol behavior cannot be found. Report what you searched and what is missing; do not guess.

@@ -4,14 +4,14 @@ Thanks for your interest in improving Print Farm Manager! This project runs real
 
 ## Getting Set Up
 
-You need **Node.js 22 LTS**. Node 24+ has known issues compiling the native SQLite dependency on Windows, so stick with 22.
+Use **Node.js 26.8.1** and **pnpm 12.3.4** (see `.node-version` and `packageManager` in `package.json`). Install pnpm with `npm install --global pnpm@12.3.4` if needed.
 
 ```bash
 git clone https://github.com/joeltelling/print-farm-manager.git
 cd print-farm-manager
-npm install
-cd client && npm install && cd ..
-npm run dev
+pnpm install --frozen-lockfile
+pnpm build
+pnpm dev
 ```
 
 - API server: `http://localhost:3000`
@@ -22,10 +22,10 @@ Prefer not to install Node.js locally? `docker compose up --build print-farm-man
 Run the test suite before opening a PR. All tests must pass:
 
 ```bash
-npm test
+pnpm test
 ```
 
-Using Docker instead? `docker compose exec print-farm-manager-dev npm test`.
+Using Docker instead? `docker compose exec print-farm-manager-dev pnpm test`.
 
 ## Before You Build Something Big
 

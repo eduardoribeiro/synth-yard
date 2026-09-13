@@ -1,19 +1,19 @@
-# Print Farm Manager — Documentation
+# Synth Yard Documentation
 
 A locally-hosted web app for managing a multi-brand 3D printer farm. Replaces manual USB job distribution with centralized status monitoring and automated job dispatch. Supports Prusa (PrusaLink), Elegoo Centauri (SDCP), Bambu (MQTT), Klipper (Moonraker), and OctoPrint printers.
 
 ## Quick Start
 
 ```bash
-npm install
-cd client && npm install && cd ..
-npm run dev
+pnpm install --frozen-lockfile
+pnpm build
+pnpm dev
 ```
 
 - API: `http://localhost:3000`
 - UI: `http://localhost:5173`
 
-Prefer Docker over a local Node.js install? `docker compose up --build print-farm-manager-dev` runs the same workflow in a container — see the [README](../README.md#quick-start-development).
+Prefer Docker over a local Node.js install? `docker compose up --build synth-yard-dev` runs the same workflow in a container — see the [README](../README.md#quick-start-development).
 
 ## Documentation Index
 
@@ -34,7 +34,7 @@ Prefer Docker over a local Node.js install? `docker compose up --build print-far
 ## Project Structure
 
 ```
-print-farm-manager/
+synth-yard/
 ├── server/
 │   ├── index.js          # Express entry point
 │   ├── db.js             # SQLite connection + schema init + startup migrations

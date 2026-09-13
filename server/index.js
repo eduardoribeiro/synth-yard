@@ -67,7 +67,7 @@ if (!fs.existsSync(path.join(clientDist, 'index.html'))) {
   console.error('  The React client has not been built yet.');
   console.error('');
   console.error('  Run this once before starting the server:');
-  console.error('    npm run build');
+  console.error('    pnpm build');
   console.error('');
   console.error('  (See docs/installation.md for the full setup steps.)');
   console.error('');

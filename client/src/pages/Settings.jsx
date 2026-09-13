@@ -20,6 +20,7 @@ const CONNECTOR_OPTIONS = [
   { value: 'bambu',            label: 'Bambu (MQTT)' },
   { value: 'klipper',          label: 'Klipper (Moonraker)' },
   { value: 'octoprint',        label: 'OctoPrint' },
+  { value: 'creality',         label: 'Creality (Stock LAN)' },
 ];
 const CONNECTOR_LABEL = {
   'prusa':            'Prusa (PrusaLink)',
@@ -28,12 +29,14 @@ const CONNECTOR_LABEL = {
   'bambu':            'Bambu (MQTT)',
   'klipper':          'Klipper (Moonraker)',
   'octoprint':        'OctoPrint',
+  'creality':         'Creality (Stock LAN)',
 };
 // Connector types that do not use an API key
-const NO_API_KEY_TYPES = new Set(['elegoo-centauri', 'klipper']);
+const NO_API_KEY_TYPES = new Set(['elegoo-centauri', 'klipper', 'creality']);
 
 // Per-brand hints on where to find connection credentials
 const CREDENTIAL_HELP = {
+  'creality':         'No API key or root needed. Enter the printer IP; stock LAN uses HTTP port 80 and WebSocket port 9999. Ender 3 V3 KE protocol; K1 series experimental. K2 and CR-M4 are not supported. Upload plain .gcode files sliced for this model.',
   'prusa':            'API Key: on the printer under Settings → Network → PrusaLink, or in the PrusaLink web UI (open the printer\'s IP in a browser) under Settings → API Key.',
   'elegoo-centauri':  'No API key needed — just the printer\'s IP address, shown on the printer\'s network settings screen.',
   'elegoo-centauri2': 'Enable LAN mode on the printer. The Access Code and Serial Number are shown on the printer\'s network settings screen.',
@@ -377,7 +380,7 @@ export default function Settings() {
         .then(settingsData => {
           if (settingsData.dispatch_batch_size) setBatchSize(settingsData.dispatch_batch_size);
           setFarmName(settingsData.farm_name || '');
-          window.dispatchEvent(new CustomEvent('farmNameChanged', { detail: settingsData.farm_name || 'Print Farm' }));
+          window.dispatchEvent(new CustomEvent('farmNameChanged', { detail: settingsData.farm_name || 'Synth Yard' }));
         })
         .catch(() => {});
     } catch (err) {
@@ -874,7 +877,7 @@ export default function Settings() {
                 value={addForm.name}
                 onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))}
                 required
-                placeholder={addForm.type === 'elegoo-centauri' ? 'Centauri_01' : addForm.type === 'elegoo-centauri2' ? 'CC2_01' : addForm.type === 'bambu' ? 'Bambu_X1C_01' : addForm.type === 'klipper' ? 'Voron_01' : addForm.type === 'octoprint' ? 'OctoPi_01' : 'MK4S_11'}
+                placeholder={addForm.type === 'elegoo-centauri' ? 'Centauri_01' : addForm.type === 'elegoo-centauri2' ? 'CC2_01' : addForm.type === 'bambu' ? 'Bambu_X1C_01' : addForm.type === 'klipper' ? 'Voron_01' : addForm.type === 'octoprint' ? 'OctoPi_01' : addForm.type === 'creality' ? 'K1_01' : 'MK4S_11'}
                 style={inputStyle}
               />
             </div>
@@ -1106,7 +1109,7 @@ export default function Settings() {
           <input
             value={farmName}
             onChange={e => setFarmName(e.target.value)}
-            placeholder="My Print Farm"
+            placeholder="My Synth Yard"
             maxLength={40}
             style={{ ...inputStyle, width: 240 }}
           />
@@ -1268,40 +1271,13 @@ export default function Settings() {
 
       {/* About */}
       <section style={{ maxWidth: 640, borderTop: '1px solid #1e2433', paddingTop: 24 }}>
-        <p style={{ color: '#475569', fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
-          Hi, I'm Joel — aka <strong style={{ color: '#64748b' }}>3D Printing Nerd</strong>. I built this tool
-          to manage my own print farm and decided to open-source it so the community could benefit too.
-          If it saves you time or headaches, I'd love a coffee — it helps me keep making free content and
-          tools like this one. Thanks for being part of the community. Happy printing!
+        <p style={{ color: '#475569', fontSize: 13, lineHeight: 1.7 }}>
+          Synth Yard is open-source software based on{' '}
+          <a href="https://github.com/joeltelling/print-farm-manager" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>
+            Print Farm Manager by Joel Telling
+          </a>{' '}
+          and distributed under the MIT License.
         </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <a
-            href="https://buymeacoffee.com/3dprintingnerd"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: '#FFDD00', color: '#000',
-              padding: '7px 16px', borderRadius: 8,
-              fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            }}
-          >
-            ☕ Buy Me a Coffee
-          </a>
-          <a
-            href="https://paypal.me/JoelTelling"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: '#003087', color: '#fff',
-              padding: '7px 16px', borderRadius: 8,
-              fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            }}
-          >
-            PayPal
-          </a>
-        </div>
       </section>
     </div>
   );

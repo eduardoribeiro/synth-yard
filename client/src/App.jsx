@@ -34,7 +34,7 @@ const navLinkStyle = ({ isActive }) => ({
 
 export default function App() {
   // Operator-configurable farm name (Settings → Farm Name)
-  const [farmName, setFarmName] = useState('Print Farm');
+  const [farmName, setFarmName] = useState('Synth Yard');
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.json())
@@ -69,7 +69,7 @@ export default function App() {
         <nav id="sidebar">
           <div style={{ padding: '0 6px 16px', borderBottom: '1px solid #1e2433', marginBottom: 8 }}>
             <div style={{ fontWeight: 800, fontSize: 15, color: '#e2e8f0', lineHeight: 1.3 }}>{farmName}</div>
-            <div style={{ fontWeight: 400, fontSize: 11, color: '#475569' }}>Print Farm Manager</div>
+            <div style={{ fontWeight: 400, fontSize: 11, color: '#475569' }}>Synth Yard</div>
           </div>
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/' || !!item.end} style={navLinkStyle}>

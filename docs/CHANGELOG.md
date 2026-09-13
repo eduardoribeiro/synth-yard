@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-09-13: establish Synth Yard fork identity and delivery standards
+
+This repository is now Synth Yard, an independently owned fork based on Joel Telling's Print Farm Manager. The fork keeps the upstream MIT attribution while setting a self-hosted-first product direction, with an optional managed cloud offering as future convenience rather than a self-hosting replacement. The roadmap now records the technical foundations required to grow safely: complete TypeScript migration, client and end-to-end testing, Conventional Commits with Semantic Versioning, and automated GitHub releases after merges to `main`.
+
+### Changes
+- `LICENSE`: preserved the original MIT copyright and added explicit attribution that Synth Yard is based on Print Farm Manager by Joel Telling.
+- `README.md`, `docs/README.md`, `docs/installation.md`: renamed current product references and installation commands to Synth Yard and `eduardoribeiro/synth-yard`.
+- `package.json`, `client/package.json`, `Dockerfile`, `docker-compose.yml`, `update.bat`, `client/src/App.jsx`, `client/index.html`: renamed package, container, updater, navigation, and browser-title identity to Synth Yard.
+- `TODO.md`: added the TypeScript, unit/component/E2E testing, Conventional Commit and Semantic Versioning, and automated-release directives.
+
+---
+
 ## 2026-09-01: printerIdle bypass let dispatch exceed dispatch_batch_size
 
 Joel batch-confirmed a stack of held printers via Set Ready (N) with `dispatch_batch_size` set to 5, then individually confirmed roughly ten more printers that had shown a false failed-upload hold (the upload attempt was reported failed on our side, but the printer had actually completed the print). Fleet's uploading count briefly showed 7 concurrent uploads against the configured limit of 5.

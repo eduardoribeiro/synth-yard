@@ -1,10 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Joel Telling
-Copyright (c) 2026 Eduardo Ribeiro
-
-Synth Yard is based on Print Farm Manager, originally created by Joel Telling.
-Original project: https://github.com/joeltelling/print-farm-manager
+Copyright (c) 2026 Ashim Aryal
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

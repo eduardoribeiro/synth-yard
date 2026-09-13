@@ -234,6 +234,38 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
   beforeEach(() => { jest.useFakeTimers(); });
   afterEach(() => { jest.useRealTimers(); });
 
+  test.each([true, false])('does not retry an uncertain start; filename recovery=%s', async recovered => {
+    const filename = `creality_${Date.now()}.gcode`;
+    createTestFile(filename);
+    const db = makeDb(filename);
+    db.prepare('UPDATE gcodes SET filename = ?').run(filename);
+    const scheduler = new JobScheduler(db, { on: () => {} });
+    mockDriver.uploadAndPrint.mockRejectedValue(Object.assign(new Error('Unconfirmed start'), { retryable: false }));
+    mockDriver.checkIfPrinting.mockResolvedValue(recovered);
+    const promise = scheduler._dispatchToPrinter(fakePrinter);
+    await jest.runAllTimersAsync();
+    await promise;
+    expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(1);
+    expect(mockDriver.checkIfPrinting).toHaveBeenCalledWith(fakePrinter, filename);
+    expect(db.prepare('SELECT status FROM jobs').get().status).toBe(recovered ? 'printing' : 'uploading');
+    expect(db.prepare('SELECT is_held FROM printers WHERE id = 1').get().is_held).toBe(recovered ? 0 : 1);
+  });
+
+  test('a busy preflight failure cannot recover an unrelated print', async () => {
+    const filename = `busy_${Date.now()}.gcode`;
+    createTestFile(filename);
+    const db = makeDb(filename);
+    const scheduler = new JobScheduler(db, { on: () => {} });
+    mockDriver.uploadAndPrint.mockRejectedValue(Object.assign(new Error('Printer busy'), { retryable: false, recoverable: false }));
+    mockDriver.checkIfPrinting.mockResolvedValue(true);
+    const promise = scheduler._dispatchToPrinter(fakePrinter);
+    await jest.runAllTimersAsync();
+    expect(await promise).toBeNull();
+    expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(1);
+    expect(mockDriver.checkIfPrinting).not.toHaveBeenCalled();
+    expect(db.prepare('SELECT is_held FROM printers WHERE id = 1').get().is_held).toBe(1);
+  });
+
   test('recovers job when uploadAndPrint fails but checkIfPrinting returns true', async () => {
     const filename = `recover_${Date.now()}.bgcode`;
     createTestFile(filename);
