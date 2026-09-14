@@ -128,7 +128,38 @@ The cloud offering must be designed before it is built. The single biggest decis
 
 **Mobile:** responsive web at the 600 px breakpoint is the floor; a PWA manifest is the cheap next step. Native apps are not on the roadmap until the web product is complete.
 
-## Part 8: Recommended sequencing
+## Part 8: Track 8 - External job observability and import
+
+**Goal:** make Synth Yard useful when operators start prints from a slicer, a vendor application, or the printer UI. The app must record and display observed jobs without requiring Synth Yard to dispatch them.
+
+### 8A. Separate observed jobs from scheduler-owned jobs
+
+- Add an additive `job_source` field or a separate observed-job record with explicit values: `synth_yard`, `slicer`, `printer_ui`, `unknown`.
+- A driver reports the native file name, start state, progress, elapsed time, and terminal state when its protocol exposes them. The poller creates or updates an observed job when a printer enters PRINTING with no active Synth Yard job.
+- Observed jobs appear in Fleet, Printer Detail, Jobs, and printer history with a clear `Observed` label. They retain start/end timestamps, final printer state, reported filename, and connector metadata.
+- Never use an observed job as a scheduler dispatch lock. Synth Yard must not upload, cancel, delete, or replace an observed job unless the operator explicitly takes an action supported by that connector.
+
+### 8B. Safe completion and inventory rules
+
+- An observed FINISHED transition records the job as finished, but does **not** modify `parts.completed_qty` automatically. A filename, elapsed time, or 100 percent progress is not proof of which internal part or quantity was physically produced.
+- Let an operator optionally link an observed job to a project/part after it finishes, then use the existing explicit quantity-confirmation flow to credit parts. The operator remains the real-world event anchor.
+- Preserve the existing restart/reconnect protections: stale terminal states, OFFLINE to FINISHED transitions, and historical printer files must never create a new observed completion or credit.
+- Repeated polls of the same running file update one observed job, not create duplicates. Define an idempotency key from printer ID, native job/file identity when available, and a process-safe start marker.
+
+### 8C. Driver contract and UI
+
+- Extend the optional driver telemetry contract with `nativeJob`: native job ID when available, filename, started-at time when available, elapsed seconds, progress, and raw terminal state. Do not guess unavailable fields.
+- Implement connector by connector from official protocol documentation and real hardware validation: start with Creality and Sparkx hardware already on the farm, then Moonraker, OctoPrint, PrusaLink, and Bambu.
+- Add a Printer Detail job history section that combines scheduler-owned and observed jobs but clearly identifies source, tracking confidence, and whether inventory was credited.
+- Add an operator workflow to link an observed job to a project/part and confirm good quantity. Never infer a part association from the filename alone.
+
+### 8D. Data retention and cloud readiness
+
+- Retain observed job history locally by default, with configurable pruning for farms that generate high volumes of telemetry.
+- Keep raw vendor payloads out of the main jobs table. Store a bounded, redacted diagnostic snapshot only when it materially helps connector support.
+- This track is foundational for the future cloud and analytics products: job history, utilization, print hours, and failure rates must include work started outside Synth Yard.
+
+## Part 9: Recommended sequencing
 
 1. Track 7A (TypeScript foundation) and Track 7B (test foundation): establish the language and test harness before feature work grows further.
 2. Track 7C and 7D: enforce Conventional Commits and automated semantic releases once the initial CI checks are stable.
@@ -174,6 +205,17 @@ The cloud offering must be designed before it is built. The single biggest decis
 - The release workflow requires `contents: write` and `pull-requests: write`. Configure it to use `GITHUB_TOKEN` initially. If branch protection prevents the generated release PR from merging, use a fine-scoped GitHub App or token and document the setup in `docs/releases.md`.
 - Change Docker publishing so it publishes immutable semantic image tags from the generated release tag, while `latest` tracks successful `main` builds. Docker publishing must remain gated by test, typecheck, build, and E2E jobs.
 - Add `docs/releases.md`: contributor commit format, versioning rules, release flow, how to recover a failed release, and how self-hosted operators upgrade.
+
+### 7E. Native Fetch migration
+
+**Goal:** remove Axios and `form-data`, use Node's built-in Fetch API for every server HTTP request, and keep driver behavior equivalent.
+
+- [x] Add `server/http.js`, with a tested `requestJson` helper that centralizes `AbortSignal.timeout`, JSON parsing, non-success `HttpError` responses, and query serialization. Its Moonraker regression test preserves empty object-query values.
+- [ ] Migrate non-upload request paths first: PrusaLink status, Moonraker status, OctoPrint status, cancellation, and the raw-status diagnostic route. Read official protocol docs before each driver is edited.
+- [ ] Migrate Prusa raw stream uploads with `Readable.toWeb`, explicit `Content-Length`, `duplex: 'half'`, and UPLOAD_CONFLICT regression coverage.
+- [ ] Migrate native multipart uploads for Moonraker, OctoPrint, and Creality using built-in `FormData` and `Blob`, with protocol-specific upload tests.
+- [ ] Replace Axios mocks with `server/http.js` mocks in driver tests, then remove `axios` and `form-data` only after the full suite passes.
+- [ ] Update driver docs, server dependency docs, and hardware validation status as each connector migration lands.
 
 ## Part 10: Cross-cutting checklist (applies to every change)
 

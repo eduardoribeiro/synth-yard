@@ -1,8 +1,34 @@
 // Unit tests for server/drivers/klipper.js
 // All network calls are mocked — no real printers needed.
 
-jest.mock('axios');
-const axios = require('axios');
+jest.mock('../http', () => ({
+  requestJson: jest.fn(),
+  requestEmpty: jest.fn(),
+  fileBlob: jest.fn(filePath => new Blob([require('fs').readFileSync(filePath)], { type: 'application/octet-stream' })),
+}));
+const http = require('../http');
+const httpMock = { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() };
+
+async function adapterRequest(url, { method = 'GET', headers, body, query, timeoutMs = 8000 } = {}) {
+  const config = { headers, timeout: timeoutMs };
+  if (query) config.params = query;
+  if (body instanceof FormData) {
+    config.headers = { ...headers, 'content-type': 'multipart/form-data; boundary=native' };
+  }
+  try {
+    if (method === 'GET') return await httpMock.get(url, config);
+    if (method === 'DELETE') return await httpMock.delete(url, config);
+    if (method === 'PUT') return await httpMock.put(url, body, config);
+    return await httpMock.post(url, body, config);
+  } catch (err) {
+    if (err.response && err.status === undefined) err.status = err.response.status;
+    throw err;
+  }
+}
+
+http.requestJson.mockImplementation(async (url, options) => (await adapterRequest(url, options)).data);
+http.requestEmpty.mockImplementation(async (url, options) => { await adapterRequest(url, options); });
+
 
 const path   = require('path');
 const fs     = require('fs');
@@ -57,7 +83,7 @@ function moonrakerResponse(printState, vsdProgress = 0, elapsed = 0, webhookStat
 
 describe('getStatus', () => {
   test('returns IDLE when Moonraker state is standby', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('standby'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('standby'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('IDLE');
     expect(result.progress).toBeNull();
@@ -65,7 +91,7 @@ describe('getStatus', () => {
   });
 
   test('returns PRINTING with progress when printing and past 2% threshold', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.5, 600));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.5, 600));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('PRINTING');
     expect(result.progress).toBe(50);
@@ -74,7 +100,7 @@ describe('getStatus', () => {
   });
 
   test('returns PRINTING with null timeRemaining when progress is below 2% threshold', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.01, 30));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.01, 30));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('PRINTING');
     expect(result.progress).toBe(1);
@@ -82,14 +108,14 @@ describe('getStatus', () => {
   });
 
   test('returns PAUSED with progress', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('paused', 0.3, 300));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('paused', 0.3, 300));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('PAUSED');
     expect(result.progress).toBe(30);
   });
 
   test('returns FINISHED when Moonraker state is complete', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('complete'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('complete'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('FINISHED');
     expect(result.progress).toBeNull();
@@ -97,40 +123,40 @@ describe('getStatus', () => {
   });
 
   test('returns ERROR when Moonraker state is error', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('error'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('error'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('ERROR');
   });
 
   test('returns STOPPED when Moonraker state is cancelled', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('cancelled'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('cancelled'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('STOPPED');
   });
 
   test('returns OFFLINE when webhooks.state is not ready (e.g. startup)', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('standby', 0, 0, 'startup'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('standby', 0, 0, 'startup'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('OFFLINE');
   });
 
   test('returns OFFLINE on network error', async () => {
-    axios.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
+    httpMock.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('OFFLINE');
     expect(result.progress).toBeNull();
   });
 
   test('returns UNKNOWN for an unrecognised Moonraker state', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('some_future_state'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('some_future_state'));
     const result = await klipper.getStatus(fakePrinter);
     expect(result.status).toBe('UNKNOWN');
   });
 
   test('queries correct Moonraker URL on port 7125 with required object params', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('standby'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('standby'));
     await klipper.getStatus(fakePrinter);
-    expect(axios.get).toHaveBeenCalledWith(
+    expect(httpMock.get).toHaveBeenCalledWith(
       'http://192.168.1.250:7125/printer/objects/query',
       expect.objectContaining({
         params: { print_stats: '', virtual_sdcard: '', webhooks: '' },
@@ -140,9 +166,9 @@ describe('getStatus', () => {
 
   test('strips http:// prefix from ip field when building URL', async () => {
     const messyPrinter = { ...fakePrinter, ip: 'http://192.168.1.250/' };
-    axios.get.mockResolvedValueOnce(moonrakerResponse('standby'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('standby'));
     await klipper.getStatus(messyPrinter);
-    expect(axios.get).toHaveBeenCalledWith(
+    expect(httpMock.get).toHaveBeenCalledWith(
       'http://192.168.1.250:7125/printer/objects/query',
       expect.anything()
     );
@@ -155,28 +181,24 @@ describe('uploadAndPrint', () => {
   test('POSTs to /server/files/upload with print=true as a form field', async () => {
     const filename = `klipper_upload_${Date.now()}.gcode`;
     const fullPath = createTestFile(filename);
-    axios.post.mockResolvedValueOnce({});
-
-    const FormData = require('form-data');
-    const appendSpy = jest.spyOn(FormData.prototype, 'append');
+    httpMock.post.mockResolvedValueOnce({});
 
     await klipper.uploadAndPrint(fakePrinter, fullPath, filename);
 
-    const [url, , config] = axios.post.mock.calls[0];
+    const [url, form, config] = httpMock.post.mock.calls[0];
     expect(url).toBe('http://192.168.1.250:7125/server/files/upload');
+    expect(form).toBeInstanceOf(FormData);
 
-    // print must be a form field — query params are silently ignored by Moonraker
-    const appendedFields = appendSpy.mock.calls.map(([name, value]) => ({ name, value }));
-    expect(appendedFields).toContainEqual({ name: 'print', value: 'true' });
+    // print must be a form field, query params are silently ignored by Moonraker
+    expect(form.get('print')).toBe('true');
+    expect(form.get('file')).toBeInstanceOf(Blob);
     expect(config?.params?.print).toBeUndefined();
-
-    appendSpy.mockRestore();
   });
 
   test('throws when upload fails', async () => {
     const filename = `klipper_fail_${Date.now()}.gcode`;
     const fullPath = createTestFile(filename);
-    axios.post.mockRejectedValueOnce(new Error('Request failed with status code 405'));
+    httpMock.post.mockRejectedValueOnce(new Error('Request failed with status code 405'));
 
     await expect(klipper.uploadAndPrint(fakePrinter, fullPath, filename))
       .rejects.toThrow('405');
@@ -187,22 +209,22 @@ describe('uploadAndPrint', () => {
 
 describe('checkIfPrinting', () => {
   test('returns true when Moonraker state is printing', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.5, 300));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('printing', 0.5, 300));
     expect(await klipper.checkIfPrinting(fakePrinter)).toBe(true);
   });
 
   test('returns true when Moonraker state is paused', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('paused', 0.5, 300));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('paused', 0.5, 300));
     expect(await klipper.checkIfPrinting(fakePrinter)).toBe(true);
   });
 
   test('returns false when Moonraker state is standby', async () => {
-    axios.get.mockResolvedValueOnce(moonrakerResponse('standby'));
+    httpMock.get.mockResolvedValueOnce(moonrakerResponse('standby'));
     expect(await klipper.checkIfPrinting(fakePrinter)).toBe(false);
   });
 
   test('returns false when printer is unreachable', async () => {
-    axios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    httpMock.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     expect(await klipper.checkIfPrinting(fakePrinter)).toBe(false);
   });
 });

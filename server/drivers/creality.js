@@ -1,9 +1,7 @@
 // Stock Creality LAN: HTTP upload + WebSocket telemetry/control on port 9999.
 // Protocol reference: https://github.com/ashimaryal25/printfarm
 // See docs/creality.md and docs/licenses/printfarm-MIT.txt.
-const axios = require('axios');
-const fs = require('fs');
-const FormData = require('form-data');
+const { requestJson, fileBlob } = require('../http');
 
 const GCODE_DIR = '/usr/data/printer_data/gcodes';
 const REQUEST = { method: 'get', params: { reqPrintObjects: {} } };
@@ -143,17 +141,15 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
       throw err;
     }
     const form = new FormData();
-    const stream = fs.createReadStream(gcodeFullPath);
-    form.append('file', stream, { filename });
-    try {
-      const response = await axios.post(`${address(printer).http}/upload/${encodeURIComponent(filename)}`, form, {
-        headers: form.getHeaders(), timeout: 300000,
-        maxContentLength: Infinity, maxBodyLength: Infinity,
-      });
-      if (response.data?.code != null && Number(response.data.code) !== 0) {
-        throw new Error(`Creality upload rejected: ${response.data.msg || response.data.code}`);
-      }
-    } finally { stream.destroy(); }
+    form.append('file', fileBlob(gcodeFullPath), filename);
+    const data = await requestJson(`${address(printer).http}/upload/${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      body: form,
+      timeoutMs: 300000,
+    });
+    if (data?.code != null && Number(data.code) !== 0) {
+      throw new Error(`Creality upload rejected: ${data.msg || data.code}`);
+    }
     try {
       await exchange(printer, {
         command: { method: 'set', params: { opGcodeFile: `printprt:${GCODE_DIR}/${filename}` } },

@@ -5,9 +5,7 @@
 // All communication is plain HTTP — no persistent connection, no auth required on LAN.
 // Upload: POST multipart to /server/files/upload with print=true — starts immediately.
 
-const axios = require('axios');
-const fs = require('fs');
-const FormData = require('form-data');
+const { requestJson, requestEmpty, fileBlob } = require('../http');
 
 const PORT = 7125;
 
@@ -31,17 +29,14 @@ const STATE_MAP = {
 
 async function getStatus(printer) {
   try {
-    const res = await axios.get(
-      `${base(printer)}/printer/objects/query`,
-      {
-        params: { print_stats: '', virtual_sdcard: '', webhooks: '' },
-        timeout: 8000,
-      }
-    );
+    const data = await requestJson(`${base(printer)}/printer/objects/query`, {
+      query: { print_stats: '', virtual_sdcard: '', webhooks: '' },
+      timeoutMs: 8000,
+    });
 
-    const stats  = res.data?.result?.status?.print_stats  || {};
-    const vsd    = res.data?.result?.status?.virtual_sdcard || {};
-    const hooks  = res.data?.result?.status?.webhooks || {};
+    const stats  = data?.result?.status?.print_stats  || {};
+    const vsd    = data?.result?.status?.virtual_sdcard || {};
+    const hooks  = data?.result?.status?.webhooks || {};
 
     // If Klipper itself is not ready (startup, shutdown, error), report offline.
     if (hooks.state && hooks.state !== 'ready') {
@@ -84,26 +79,24 @@ async function getStatus(printer) {
 // overwrites it silently, so no pre-delete step is needed.
 async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const form = new FormData();
-  form.append('file', fs.createReadStream(gcodeFullPath), { filename });
+  form.append('file', fileBlob(gcodeFullPath), filename);
   form.append('print', 'true'); // must be a form field, not a query param
 
-  await axios.post(
-    `${base(printer)}/server/files/upload`,
-    form,
-    {
-      headers: form.getHeaders(),
-      timeout: 300000, // 5 minutes for large files
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    }
-  );
+  await requestEmpty(`${base(printer)}/server/files/upload`, {
+    method: 'POST',
+    body: form,
+    timeoutMs: 300000, // 5 minutes for large files
+  });
 }
 
 // ─── Cancel ──────────────────────────────────────────────────────────────────
 
 async function cancelJob(printer) {
   try {
-    await axios.post(`${base(printer)}/printer/print/cancel`, null, { timeout: 10000 });
+    await requestEmpty(`${base(printer)}/printer/print/cancel`, {
+      method: 'POST',
+      timeoutMs: 10000,
+    });
   } catch (err) {
     console.warn(`[klipper] Cancel failed for ${printer.name}: ${err.message}`);
   }

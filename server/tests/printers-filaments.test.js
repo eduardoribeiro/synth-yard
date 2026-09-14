@@ -3,6 +3,8 @@
 //   PUT /api/printers/:id — loaded_material / loaded_color fields
 //   Auto-registration into printer_groups on create/update
 
+jest.mock('../http', () => ({ requestJson: jest.fn() }));
+const { requestJson } = require('../http');
 const request  = require('supertest');
 const express  = require('express');
 const Database = require('better-sqlite3');
@@ -280,6 +282,16 @@ describe('Creality setup', () => {
       .attach('file', Buffer.from(csv), 'printers.csv');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ imported: 1, skipped: 0, flagged: [] });
+  });
+
+  test('raw status uses the shared HTTP adapter for PrusaLink', async () => {
+    requestJson.mockResolvedValueOnce({ printer: { state: 'IDLE' } });
+    const id = db.prepare("SELECT id FROM printers WHERE name = 'P1'").get().id;
+    const res = await request(app).get(`/api/printers/${id}/raw-status`);
+    expect(res.body.raw).toEqual({ printer: { state: 'IDLE' } });
+    expect(requestJson).toHaveBeenCalledWith('http://192.168.1.1/api/v1/status', {
+      headers: { 'X-Api-Key': '' }, timeoutMs: 8000,
+    });
   });
 
   test('raw status uses the Creality driver', async () => {

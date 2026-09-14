@@ -1,5 +1,31 @@
-jest.mock('axios');
-const axios = require('axios');
+jest.mock('../http', () => ({
+  requestJson: jest.fn(),
+  requestEmpty: jest.fn(),
+  fileBlob: jest.fn(filePath => new Blob([require('fs').readFileSync(filePath)], { type: 'application/octet-stream' })),
+}));
+const http = require('../http');
+const httpMock = { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() };
+
+async function adapterRequest(url, { method = 'GET', headers, body, query, timeoutMs = 8000 } = {}) {
+  const config = { headers, timeout: timeoutMs };
+  if (query) config.params = query;
+  if (body instanceof FormData) {
+    config.headers = { ...headers, 'content-type': 'multipart/form-data; boundary=native' };
+  }
+  try {
+    if (method === 'GET') return await httpMock.get(url, config);
+    if (method === 'DELETE') return await httpMock.delete(url, config);
+    if (method === 'PUT') return await httpMock.put(url, body, config);
+    return await httpMock.post(url, body, config);
+  } catch (err) {
+    if (err.response && err.status === undefined) err.status = err.response.status;
+    throw err;
+  }
+}
+
+http.requestJson.mockImplementation(async (url, options) => (await adapterRequest(url, options)).data);
+http.requestEmpty.mockImplementation(async (url, options) => { await adapterRequest(url, options); });
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -45,7 +71,7 @@ beforeEach(() => {
   scenarios = [];
   sockets = [];
   global.WebSocket = FakeSocket;
-  axios.post.mockResolvedValue({ data: { code: 0 } });
+  httpMock.post.mockResolvedValue({ data: { code: 0 } });
 });
 afterEach(() => {
   global.WebSocket = originalWebSocket;
@@ -120,11 +146,12 @@ describe('Creality upload and control', () => {
       { frames: ['ok', { deviceState: 1 }, { printFileName: '/usr/data/printer_data/gcodes/my part.gcode' }] },
     );
     await settle(driver.uploadAndPrint({ ...printer, ip: 'http://192.168.1.50:8080/' }, file, 'my part.gcode'));
-    expect(axios.post).toHaveBeenCalledTimes(1);
-    const [url, form, config] = axios.post.mock.calls[0];
+    expect(httpMock.post).toHaveBeenCalledTimes(1);
+    const [url, form, config] = httpMock.post.mock.calls[0];
     expect(url).toBe('http://192.168.1.50:8080/upload/my%20part.gcode');
     expect(config.headers['content-type']).toMatch(/multipart\/form-data/);
-    expect(form.getHeaders).toBeInstanceOf(Function);
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.get('file')).toBeInstanceOf(Blob);
     expect(sockets[1].url).toBe('ws://192.168.1.50:9999/');
     expect(sockets[1].sent[0]).toEqual({ method: 'set', params: {
       opGcodeFile: 'printprt:/usr/data/printer_data/gcodes/my part.gcode',
@@ -136,20 +163,20 @@ describe('Creality upload and control', () => {
     'rejects invalid filename %s before contacting the printer', async filename => {
       await expect(driver.uploadAndPrint(printer, file, filename)).rejects.toMatchObject({ retryable: false, recoverable: false });
       expect(sockets).toHaveLength(0);
-      expect(axios.post).not.toHaveBeenCalled();
+      expect(httpMock.post).not.toHaveBeenCalled();
     }
   );
 
   test.each([1, 5, 3, 'unrecognized'])('does not upload to a printer with state %s', async deviceState => {
     scenarios.push({ frames: [{ deviceState }] });
     await expect(settle(driver.uploadAndPrint(printer, file, 'part.gcode'))).rejects.toMatchObject({ retryable: false, recoverable: false });
-    expect(axios.post).not.toHaveBeenCalled();
+    expect(httpMock.post).not.toHaveBeenCalled();
   });
 
   test.each(['http', 'application'])('does not start after %s upload failure', async failure => {
     scenarios.push({ frames: [{ deviceState: 0 }] });
-    if (failure === 'http') axios.post.mockRejectedValueOnce(new Error('HTTP 500'));
-    else axios.post.mockResolvedValueOnce({ data: { code: 1, msg: 'disk full' } });
+    if (failure === 'http') httpMock.post.mockRejectedValueOnce(new Error('HTTP 500'));
+    else httpMock.post.mockResolvedValueOnce({ data: { code: 1, msg: 'disk full' } });
     await expect(settle(driver.uploadAndPrint(printer, file, 'part.gcode'))).rejects.toThrow();
     expect(sockets).toHaveLength(1);
   });

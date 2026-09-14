@@ -12,6 +12,7 @@
 | `server/db.js` | SQLite connection, schema creation, directory setup |
 | `server/poller.js` | Printer status polling loop |
 | `server/scheduler.js` | Job dispatch engine — listens to poller events, dispatches prints |
+| `server/http.js` | Native Fetch helper for JSON, empty, raw, stream, and native multipart requests with consistent timeouts, query encoding, and HTTP errors |
 | `server/notifications.js` | In-memory alert store for recoverable server errors |
 | `server/routes/` | One file per resource (printers, projects, parts, gcodes, jobs, backup) |
 | `server/data/farm.db` | SQLite database file (auto-created, gitignored) |
@@ -100,6 +101,5 @@ Each route file that needs this pattern also declares its `express.Router()` at 
 | `better-sqlite3` | ^9.6.0 | Synchronous SQLite driver |
 | `multer` | ^2.1.1 | Multipart file upload handling (CSV import + G-code upload) |
 | `papaparse` | ^5.4.1 | CSV parsing for printer import |
-| `axios` | ^1.7.2 | HTTP client for PrusaLink API calls |
-| `form-data` | ^4.0.0 | Multipart form construction for G-code uploads to PrusaLink |
+| Node.js Fetch API | built in | HTTP transport used by `server/http.js`, including native `FormData` and `Blob` uploads |
 | `concurrently` | ^8.2.2 | Runs server + client together via `npm run dev` |
