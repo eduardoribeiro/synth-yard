@@ -23,9 +23,9 @@
 //
 // Protocol reference: https://github.com/Doridian/OpenBambuAPI
 
-const mqtt     = require('mqtt');
-const ftp      = require('basic-ftp');
-const path     = require('path');
+const mqtt = require("mqtt");
+const ftp = require("basic-ftp");
+const path = require("path");
 
 // Map of printer.id → { client, latestPrint, connected }
 const connections = new Map();
@@ -41,20 +41,20 @@ function getOrCreateConnection(printer) {
   }
 
   const serial = printer.serial_number;
-  const conn   = { client: null, latestPrint: null, connected: false };
+  const conn = { client: null, latestPrint: null, connected: false };
   connections.set(printer.id, conn);
 
   const client = mqtt.connect(`mqtts://${printer.ip}:8883`, {
-    username:          'bblp',
-    password:          printer.api_key, // access code from printer WiFi settings
-    rejectUnauthorized: false,          // Bambu uses a self-signed TLS certificate — intentional
-    reconnectPeriod:   5000,
-    connectTimeout:    10000,
+    username: "bblp",
+    password: printer.api_key, // access code from printer WiFi settings
+    rejectUnauthorized: false, // Bambu uses a self-signed TLS certificate — intentional
+    reconnectPeriod: 5000,
+    connectTimeout: 10000,
   });
 
   conn.client = client;
 
-  client.on('connect', () => {
+  client.on("connect", () => {
     conn.connected = true;
 
     // Subscribe to the printer's status push topic
@@ -64,14 +64,17 @@ function getOrCreateConnection(printer) {
 
     // Request an immediate full status dump so the cache is populated right away
     // rather than waiting for the next natural push interval.
-    client.publish(`device/${serial}/request`, JSON.stringify({
-      pushing: { sequence_id: '0', command: 'pushall', push_target: 1 },
-    }));
+    client.publish(
+      `device/${serial}/request`,
+      JSON.stringify({
+        pushing: { sequence_id: "0", command: "pushall", push_target: 1 },
+      }),
+    );
 
     console.log(`[bambu] Connected to ${printer.name} (${printer.ip})`);
   });
 
-  client.on('message', (_topic, message) => {
+  client.on("message", (_topic, message) => {
     try {
       const data = JSON.parse(message.toString());
       // All status fields arrive under data.print.
@@ -82,16 +85,16 @@ function getOrCreateConnection(printer) {
     } catch (_) {}
   });
 
-  client.on('reconnect', () => {
+  client.on("reconnect", () => {
     conn.connected = false;
     console.log(`[bambu] ${printer.name} reconnecting…`);
   });
 
-  client.on('offline', () => {
+  client.on("offline", () => {
     conn.connected = false;
   });
 
-  client.on('error', (err) => {
+  client.on("error", (err) => {
     conn.connected = false;
     if (process.env.DEBUG_BAMBU) {
       console.warn(`[bambu] ${printer.name} error:`, err?.message || err);
@@ -104,7 +107,9 @@ function getOrCreateConnection(printer) {
 function dropConnection(printerId) {
   const conn = connections.get(printerId);
   if (conn) {
-    try { conn.client?.end(true); } catch (_) {}
+    try {
+      conn.client?.end(true);
+    } catch (_) {}
     connections.delete(printerId);
   }
 }
@@ -123,13 +128,20 @@ function dropConnection(printerId) {
 //            user-cancelled prints. See the print_error disambiguation in getStatus.
 function mapStatus(gcodeState) {
   switch (gcodeState) {
-    case 'RUNNING':  return 'PRINTING';
-    case 'PREPARE':  return 'PRINTING'; // calibration/homing before layers begin
-    case 'IDLE':     return 'IDLE';
-    case 'PAUSE':    return 'PAUSED';
-    case 'FINISH':   return 'FINISHED';
-    case 'FAILED':   return 'ERROR';
-    default:         return 'UNKNOWN';
+    case "RUNNING":
+      return "PRINTING";
+    case "PREPARE":
+      return "PRINTING"; // calibration/homing before layers begin
+    case "IDLE":
+      return "IDLE";
+    case "PAUSE":
+      return "PAUSED";
+    case "FINISH":
+      return "FINISHED";
+    case "FAILED":
+      return "ERROR";
+    default:
+      return "UNKNOWN";
   }
 }
 
@@ -154,7 +166,7 @@ const BAMBU_USER_CANCELLED = 50348044;
 async function getStatus(printer) {
   if (!printer.serial_number) {
     // Misconfigured — serial number required for MQTT topics
-    return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
   }
 
   const conn = getOrCreateConnection(printer);
@@ -162,37 +174,37 @@ async function getStatus(printer) {
   if (!conn.connected || !conn.latestPrint) {
     // Not yet connected or no status received — report OFFLINE, connection is
     // retrying in the background via reconnectPeriod.
-    return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
   }
 
   const print = conn.latestPrint;
-  let status  = mapStatus(print.gcode_state);
+  let status = mapStatus(print.gcode_state);
 
   // User-cancelled prints report FAILED — remap to STOPPED so the scheduler
   // cancels the job (rather than failing it) and the UI doesn't show a false
   // error. Real failures carry a persistent nonzero print_error.
-  if (status === 'ERROR') {
+  if (status === "ERROR") {
     const printError = print.print_error ?? 0;
     if (printError === 0 || printError === BAMBU_USER_CANCELLED) {
-      status = 'STOPPED';
+      status = "STOPPED";
     }
   }
 
-  const progress = (status === 'PRINTING' || status === 'PAUSED')
-    ? (print.mc_percent ?? null)
-    : null;
+  const progress = status === "PRINTING" || status === "PAUSED" ? (print.mc_percent ?? null) : null;
 
   // Bambu reports mc_remaining_time in minutes — convert to seconds for UI consistency.
-  const timeRemaining = (status === 'PRINTING' || status === 'PAUSED')
-    ? (print.mc_remaining_time != null ? print.mc_remaining_time * 60 : null)
-    : null;
+  const timeRemaining =
+    status === "PRINTING" || status === "PAUSED"
+      ? print.mc_remaining_time != null
+        ? print.mc_remaining_time * 60
+        : null
+      : null;
 
   // subtask_name is the file or project currently printing.
   // Strip the multer-prepended timestamp prefix (e.g. "1712345678901_benchy.gcode").
-  const rawFilename = (status === 'PRINTING' || status === 'PAUSED')
-    ? (print.subtask_name ?? null)
-    : null;
-  const currentFile = rawFilename ? rawFilename.replace(/^\d+_/, '') : null;
+  const rawFilename =
+    status === "PRINTING" || status === "PAUSED" ? (print.subtask_name ?? null) : null;
+  const currentFile = rawFilename ? rawFilename.replace(/^\d+_/, "") : null;
 
   return { status, progress, timeRemaining, currentFile };
 }
@@ -217,8 +229,8 @@ function getAmsSlots(printer) {
     for (const tray of unit.tray || []) {
       if (!tray.tray_type) continue; // empty slot — no filament loaded
       slots.push({
-        slot:  amsId * 4 + parseInt(tray.id, 10),
-        type:  tray.tray_type,
+        slot: amsId * 4 + parseInt(tray.id, 10),
+        type: tray.tray_type,
         color: tray.tray_color || null,
       });
     }
@@ -227,8 +239,8 @@ function getAmsSlots(printer) {
   // External spool is always an option regardless of whether filament is loaded
   const vt = conn.latestPrint.vt_tray;
   slots.push({
-    slot:  -1,
-    type:  vt?.tray_type || '',
+    slot: -1,
+    type: vt?.tray_type || "",
     color: vt?.tray_color || null,
   });
 
@@ -251,10 +263,10 @@ async function uploadAndPrint(printer, gcodeFullPath, _filename, options = {}) {
   // The gcode_file command is non-functional on A-series (A1, A2, A2L) and
   // wrapping a plain gcode in a minimal .3mf does not satisfy firmware validation.
   // Operators must export .3mf from Bambu Studio or Orca Slicer.
-  if (ext !== '.3mf') {
+  if (ext !== ".3mf") {
     throw new Error(
       `Bambu printer ${printer.name} requires a .3mf file. ` +
-      `Export from Bambu Studio or Orca Slicer instead of uploading a plain .gcode.`
+        `Export from Bambu Studio or Orca Slicer instead of uploading a plain .gcode.`,
     );
   }
 
@@ -267,11 +279,11 @@ async function uploadAndPrint(printer, gcodeFullPath, _filename, options = {}) {
 
   try {
     await ftpClient.access({
-      host:    printer.ip,
-      port:    990,
-      user:    'bblp',
+      host: printer.ip,
+      port: 990,
+      user: "bblp",
       password: printer.api_key,
-      secure:  'implicit',
+      secure: "implicit",
       secureOptions: { rejectUnauthorized: false },
     });
 
@@ -293,26 +305,26 @@ async function uploadAndPrint(printer, gcodeFullPath, _filename, options = {}) {
   // For single-color prints: [amsSlot] (one element).
   // For external spool or no AMS: [] (empty).
   // Ref: https://github.com/Doridian/OpenBambuAPI (issue #38 + mqtt.md)
-  const subtaskName = path.basename(onPrinterFilename, '.3mf');
-  const useAms      = amsSlot != null && amsSlot >= 0;
+  const subtaskName = path.basename(onPrinterFilename, ".3mf");
+  const useAms = amsSlot != null && amsSlot >= 0;
   const printPayload = {
-    sequence_id:     '0',
-    command:         'project_file',
-    param:           'Metadata/plate_1.gcode',
-    subtask_name:    subtaskName,
-    url:             `ftp:///${onPrinterFilename}`,
-    bed_type:        'auto',
-    timelapse:       false,
-    bed_leveling:    true,
-    flow_cali:       false,
-    vibration_cali:  true,
-    layer_inspect:   false,
-    use_ams:         useAms,
-    ams_mapping:     useAms ? [amsSlot] : [],
-    profile_id:      '0',
-    project_id:      '0',
-    subtask_id:      '0',
-    task_id:         '0',
+    sequence_id: "0",
+    command: "project_file",
+    param: "Metadata/plate_1.gcode",
+    subtask_name: subtaskName,
+    url: `ftp:///${onPrinterFilename}`,
+    bed_type: "auto",
+    timelapse: false,
+    bed_leveling: true,
+    flow_cali: false,
+    vibration_cali: true,
+    layer_inspect: false,
+    use_ams: useAms,
+    ams_mapping: useAms ? [amsSlot] : [],
+    profile_id: "0",
+    project_id: "0",
+    subtask_id: "0",
+    task_id: "0",
   };
 
   const mqttPayload = JSON.stringify({ print: printPayload });
@@ -338,11 +350,11 @@ async function deleteFile(printer, filename) {
 
   try {
     await ftpClient.access({
-      host:    printer.ip,
-      port:    990,
-      user:    'bblp',
+      host: printer.ip,
+      port: 990,
+      user: "bblp",
       password: printer.api_key,
-      secure:  'implicit',
+      secure: "implicit",
       secureOptions: { rejectUnauthorized: false },
     });
 
@@ -367,9 +379,12 @@ async function cancelJob(printer) {
     return;
   }
 
-  conn.client.publish(`device/${printer.serial_number}/request`, JSON.stringify({
-    print: { sequence_id: '0', command: 'stop' },
-  }));
+  conn.client.publish(
+    `device/${printer.serial_number}/request`,
+    JSON.stringify({
+      print: { sequence_id: "0", command: "stop" },
+    }),
+  );
 
   console.log(`[bambu] Job cancelled on ${printer.name}`);
 }
@@ -379,7 +394,7 @@ async function cancelJob(printer) {
 // Returns true if the printer is currently PRINTING or PAUSED.
 async function checkIfPrinting(printer) {
   const { status } = await getStatus(printer);
-  return status === 'PRINTING' || status === 'PAUSED';
+  return status === "PRINTING" || status === "PAUSED";
 }
 
 module.exports = { getStatus, uploadAndPrint, cancelJob, checkIfPrinting, getAmsSlots, deleteFile };

@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-09-15: add OXC tooling and gradual TypeScript support
+
+Synth Yard now has a shared, fast code-quality baseline for the Node server and React client. OXC supplies formatting and linting commands scoped to `server/` and `client/src/`, while strict no-emit TypeScript configurations allow files to move from JavaScript to TypeScript incrementally without changing production runtime behavior. Existing JavaScript remains unchecked during the migration, so current behavior remains stable while new TypeScript code receives strict validation.
+
+### Changes
+- `package.json`, `client/package.json`, `pnpm-lock.yaml`: added OXC, TypeScript, and the type packages needed for gradual server and client migration, plus scoped lint, format, and typecheck commands.
+- `.oxlintrc.json`, `.oxfmtrc.json`, `tsconfig.json`, `client/tsconfig.json`: added lint exclusions, explicit OXC formatter defaults, and separate strict no-emit TypeScript configurations for CommonJS server and Vite client code.
+- `docs/tooling.md`, `docs/README.md`, `README.md`: documented the quality commands, migration process, and new development tooling.
+- `server/`, `client/src/`: formatted Node server and React client source with OXC.
+
+---
+
 ## 2026-09-14: drain native Fetch responses and align migration documentation
 
 Code review found that successful empty HTTP responses were not consumed after native Fetch requests. In a long-lived server, leaving Undici response bodies unread can retain connection resources across repeated printer uploads and controls. The shared helper now drains those bodies before returning. The same review found stale Axios wording in the poller documentation and duplicated roadmap part numbers.

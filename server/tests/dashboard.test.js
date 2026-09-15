@@ -1,13 +1,13 @@
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
 
 let db;
 let app;
 
 beforeAll(() => {
-  db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,53 +72,55 @@ beforeAll(() => {
 
   app = express();
   app.use(express.json());
-  app.use('/api/dashboard', require('../routes/dashboard')(db));
+  app.use("/api/dashboard", require("../routes/dashboard")(db));
 });
 
-function seedProject(name, { status = 'active', priority = 0 } = {}) {
+function seedProject(name, { status = "active", priority = 0 } = {}) {
   const now = Date.now();
-  const row = db.prepare(
-    'INSERT INTO projects (name, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-  ).run(name, status, priority, now, now);
+  const row = db
+    .prepare(
+      "INSERT INTO projects (name, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(name, status, priority, now, now);
   return row.lastInsertRowid;
 }
 
-describe('GET /api/dashboard: active project ordering', () => {
-  test('orders active_projects by priority, not just by creation order', async () => {
+describe("GET /api/dashboard: active project ordering", () => {
+  test("orders active_projects by priority, not just by creation order", async () => {
     // Seed in creation order A, B, C but give C the highest priority (lowest number)
     // and B the middle one, so priority order (C, B, A) differs from creation order
     // (A, B, C). This is the exact shape of the reported bug: the Projects page and
     // scheduler both order by priority ASC, created_at ASC, but the dashboard ignored
     // priority and always showed oldest-first regardless of manual reordering.
-    seedProject('A', { status: 'active', priority: 5 });
-    seedProject('B', { status: 'active', priority: 1 });
-    seedProject('C', { status: 'active', priority: 0 });
+    seedProject("A", { status: "active", priority: 5 });
+    seedProject("B", { status: "active", priority: 1 });
+    seedProject("C", { status: "active", priority: 0 });
 
-    const res = await request(app).get('/api/dashboard');
+    const res = await request(app).get("/api/dashboard");
     expect(res.status).toBe(200);
-    expect(res.body.active_projects.map(p => p.name)).toEqual(['C', 'B', 'A']);
+    expect(res.body.active_projects.map((p) => p.name)).toEqual(["C", "B", "A"]);
   });
 
-  test('falls back to created_at when priorities are equal', async () => {
-    db.exec('DELETE FROM projects');
-    const firstId  = seedProject('First',  { status: 'active', priority: 0 });
-    const secondId = seedProject('Second', { status: 'active', priority: 0 });
+  test("falls back to created_at when priorities are equal", async () => {
+    db.exec("DELETE FROM projects");
+    const firstId = seedProject("First", { status: "active", priority: 0 });
+    const secondId = seedProject("Second", { status: "active", priority: 0 });
     // Force a distinct created_at even if the inserts landed in the same millisecond.
-    db.prepare('UPDATE projects SET created_at = ? WHERE id = ?').run(1000, firstId);
-    db.prepare('UPDATE projects SET created_at = ? WHERE id = ?').run(2000, secondId);
+    db.prepare("UPDATE projects SET created_at = ? WHERE id = ?").run(1000, firstId);
+    db.prepare("UPDATE projects SET created_at = ? WHERE id = ?").run(2000, secondId);
 
-    const res = await request(app).get('/api/dashboard');
-    expect(res.body.active_projects.map(p => p.name)).toEqual(['First', 'Second']);
+    const res = await request(app).get("/api/dashboard");
+    expect(res.body.active_projects.map((p) => p.name)).toEqual(["First", "Second"]);
   });
 
-  test('excludes non-active projects', async () => {
-    db.exec('DELETE FROM projects');
-    seedProject('Draft',     { status: 'draft' });
-    seedProject('Paused',    { status: 'paused' });
-    seedProject('Completed', { status: 'completed' });
-    seedProject('Active',    { status: 'active' });
+  test("excludes non-active projects", async () => {
+    db.exec("DELETE FROM projects");
+    seedProject("Draft", { status: "draft" });
+    seedProject("Paused", { status: "paused" });
+    seedProject("Completed", { status: "completed" });
+    seedProject("Active", { status: "active" });
 
-    const res = await request(app).get('/api/dashboard');
-    expect(res.body.active_projects.map(p => p.name)).toEqual(['Active']);
+    const res = await request(app).get("/api/dashboard");
+    expect(res.body.active_projects.map((p) => p.name)).toEqual(["Active"]);
   });
 });

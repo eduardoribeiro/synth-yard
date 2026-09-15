@@ -14,19 +14,19 @@
 // migration adds a new column that the restore logic somehow stops picking up, this is the
 // test that should catch it.
 
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
-const path     = require('path');
-const fs       = require('fs');
-const os       = require('os');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
 
 let db;
 let app;
 
 beforeEach(() => {
-  db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
   // Full current schema (base CREATE TABLE + every migration in server/db.js), so
   // PRAGMA table_info in makeInserter() sees exactly what a real installation would.
   db.exec(`
@@ -164,12 +164,18 @@ beforeEach(() => {
 
   // Two types/colors (not one) so a restore that gets the filament_colors -> filament_types
   // FK order wrong, or maps a color to the wrong type, doesn't slip through by coincidence.
-  db.prepare(`INSERT INTO printer_models (model_id, label, connector) VALUES ('x1c', 'Bambu X1 Carbon', 'bambu')`).run();
+  db.prepare(
+    `INSERT INTO printer_models (model_id, label, connector) VALUES ('x1c', 'Bambu X1 Carbon', 'bambu')`,
+  ).run();
   db.prepare(`INSERT INTO printer_groups (name, created_at) VALUES ('Bambu Farm', ?)`).run(now);
   db.prepare(`INSERT INTO filament_types (name) VALUES ('PLA')`).run();
   db.prepare(`INSERT INTO filament_types (name) VALUES ('PETG')`).run();
-  db.prepare(`INSERT INTO filament_colors (type_id, name, hex_color) VALUES (1, 'Galaxy Black', '#1a1a1a')`).run();
-  db.prepare(`INSERT INTO filament_colors (type_id, name, hex_color) VALUES (2, 'Signal Red', '#cc0000')`).run();
+  db.prepare(
+    `INSERT INTO filament_colors (type_id, name, hex_color) VALUES (1, 'Galaxy Black', '#1a1a1a')`,
+  ).run();
+  db.prepare(
+    `INSERT INTO filament_colors (type_id, name, hex_color) VALUES (2, 'Signal Red', '#cc0000')`,
+  ).run();
   db.prepare(`INSERT INTO settings (key, value) VALUES ('farm_name', 'Test Farm')`).run();
   db.prepare(`INSERT INTO settings (key, value) VALUES ('dispatch_batch_size', '5')`).run();
 
@@ -180,7 +186,7 @@ beforeEach(() => {
   jest.resetModules();
   app = express();
   app.use(express.json());
-  app.use('/api/backup', require('../routes/backup')(db));
+  app.use("/api/backup", require("../routes/backup")(db));
 });
 
 function writeTempBackupFile(backup) {
@@ -189,19 +195,19 @@ function writeTempBackupFile(backup) {
   return p;
 }
 
-describe('Backup export/restore — column round-trip regression', () => {
-  test('export includes the migrated columns', async () => {
-    const res = await request(app).get('/api/backup');
+describe("Backup export/restore — column round-trip regression", () => {
+  test("export includes the migrated columns", async () => {
+    const res = await request(app).get("/api/backup");
     expect(res.status).toBe(200);
 
     expect(res.body.printers[0]).toMatchObject({
-      serial_number: '01S00A123456789',
-      loaded_material: 'PLA',
-      loaded_color: 'Galaxy Black',
+      serial_number: "01S00A123456789",
+      loaded_material: "PLA",
+      loaded_color: "Galaxy Black",
     });
     expect(res.body.projects[0]).toMatchObject({
-      required_material: 'PETG',
-      required_color: 'Red',
+      required_material: "PETG",
+      required_color: "Red",
       allowed_groups: '["Bambu Farm"]',
     });
     expect(res.body.parts[0]).toMatchObject({
@@ -212,58 +218,62 @@ describe('Backup export/restore — column round-trip regression', () => {
       ams_slot: 2,
       material_grams: 45.5,
       allowed_groups: '["Bambu Farm"]',
-      required_material: 'PETG',
-      required_color: 'Red',
+      required_material: "PETG",
+      required_color: "Red",
     });
   });
 
-  test('restore preserves every migrated column, not just the base schema', async () => {
-    const exportRes = await request(app).get('/api/backup');
+  test("restore preserves every migrated column, not just the base schema", async () => {
+    const exportRes = await request(app).get("/api/backup");
     expect(exportRes.status).toBe(200);
     const backupFile = writeTempBackupFile(exportRes.body);
 
     try {
       // Wipe the columns under test so a false-positive (restore is a no-op / DB untouched)
       // can't slip through — restore must be what puts these values back.
-      db.prepare("UPDATE printers SET serial_number = '', loaded_material = NULL, loaded_color = NULL").run();
-      db.prepare("UPDATE projects SET required_material = NULL, required_color = NULL, allowed_groups = NULL").run();
+      db.prepare(
+        "UPDATE printers SET serial_number = '', loaded_material = NULL, loaded_color = NULL",
+      ).run();
+      db.prepare(
+        "UPDATE projects SET required_material = NULL, required_color = NULL, allowed_groups = NULL",
+      ).run();
       db.prepare("UPDATE parts SET print_time_seconds = NULL, material_grams = NULL").run();
-      db.prepare("UPDATE gcodes SET ams_slot = NULL, material_grams = NULL, allowed_groups = NULL, required_material = NULL, required_color = NULL").run();
+      db.prepare(
+        "UPDATE gcodes SET ams_slot = NULL, material_grams = NULL, allowed_groups = NULL, required_material = NULL, required_color = NULL",
+      ).run();
 
-      const restoreRes = await request(app)
-        .post('/api/backup/restore')
-        .attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
 
       expect(restoreRes.status).toBe(200);
       expect(restoreRes.body.ok).toBe(true);
 
-      const printer = db.prepare('SELECT * FROM printers WHERE id = 1').get();
-      expect(printer.serial_number).toBe('01S00A123456789');
-      expect(printer.loaded_material).toBe('PLA');
-      expect(printer.loaded_color).toBe('Galaxy Black');
+      const printer = db.prepare("SELECT * FROM printers WHERE id = 1").get();
+      expect(printer.serial_number).toBe("01S00A123456789");
+      expect(printer.loaded_material).toBe("PLA");
+      expect(printer.loaded_color).toBe("Galaxy Black");
 
-      const project = db.prepare('SELECT * FROM projects WHERE id = 1').get();
-      expect(project.required_material).toBe('PETG');
-      expect(project.required_color).toBe('Red');
+      const project = db.prepare("SELECT * FROM projects WHERE id = 1").get();
+      expect(project.required_material).toBe("PETG");
+      expect(project.required_color).toBe("Red");
       expect(project.allowed_groups).toBe('["Bambu Farm"]');
 
-      const part = db.prepare('SELECT * FROM parts WHERE id = 1').get();
+      const part = db.prepare("SELECT * FROM parts WHERE id = 1").get();
       expect(part.print_time_seconds).toBe(7350);
       expect(part.material_grams).toBe(42.5);
 
-      const gcode = db.prepare('SELECT * FROM gcodes WHERE id = 1').get();
+      const gcode = db.prepare("SELECT * FROM gcodes WHERE id = 1").get();
       expect(gcode.ams_slot).toBe(2);
       expect(gcode.material_grams).toBe(45.5);
       expect(gcode.allowed_groups).toBe('["Bambu Farm"]');
-      expect(gcode.required_material).toBe('PETG');
-      expect(gcode.required_color).toBe('Red');
+      expect(gcode.required_material).toBe("PETG");
+      expect(gcode.required_color).toBe("Red");
     } finally {
       fs.unlinkSync(backupFile);
     }
   });
 
-  test('restore tolerates an older backup missing a since-added column (defaults to null, does not throw)', async () => {
-    const exportRes = await request(app).get('/api/backup');
+  test("restore tolerates an older backup missing a since-added column (defaults to null, does not throw)", async () => {
+    const exportRes = await request(app).get("/api/backup");
     const backup = exportRes.body;
     // Simulate a pre-migration backup: strip a column that was added later.
     delete backup.printers[0].loaded_color;
@@ -271,12 +281,12 @@ describe('Backup export/restore — column round-trip regression', () => {
     const backupFile = writeTempBackupFile(backup);
 
     try {
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(200);
 
-      const printer = db.prepare('SELECT * FROM printers WHERE id = 1').get();
+      const printer = db.prepare("SELECT * FROM printers WHERE id = 1").get();
       expect(printer.loaded_color).toBeNull();
-      const gcode = db.prepare('SELECT * FROM gcodes WHERE id = 1').get();
+      const gcode = db.prepare("SELECT * FROM gcodes WHERE id = 1").get();
       expect(gcode.required_color).toBeNull();
     } finally {
       fs.unlinkSync(backupFile);
@@ -290,19 +300,19 @@ describe('Backup export/restore — column round-trip regression', () => {
   // instead of falling back to the column's own default. Fixed by omitting columns missing
   // from every row of the backup's data from the generated INSERT entirely, letting SQLite
   // apply the schema default.
-  test('restore falls back to the schema default for a NOT NULL DEFAULT column missing from an older backup', async () => {
-    const exportRes = await request(app).get('/api/backup');
+  test("restore falls back to the schema default for a NOT NULL DEFAULT column missing from an older backup", async () => {
+    const exportRes = await request(app).get("/api/backup");
     const backup = exportRes.body;
-    expect(backup.parts[0]).toHaveProperty('sort_order');
+    expect(backup.parts[0]).toHaveProperty("sort_order");
     delete backup.parts[0].sort_order; // simulate a backup predating this column
     const backupFile = writeTempBackupFile(backup);
 
     try {
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(200);
       expect(restoreRes.body.ok).toBe(true);
 
-      const part = db.prepare('SELECT * FROM parts WHERE id = 1').get();
+      const part = db.prepare("SELECT * FROM parts WHERE id = 1").get();
       expect(part.sort_order).toBe(0); // schema DEFAULT, not a thrown NOT NULL violation
     } finally {
       fs.unlinkSync(backupFile);
@@ -316,36 +326,41 @@ describe('Backup export/restore — column round-trip regression', () => {
 // settings — the four tables this PR originally added to backup/restore — leaving both the
 // round trip (including the filament_colors -> filament_types FK order) and the
 // older-backup compatibility guard (missing keys must leave existing config alone) untested.
-describe('Backup export/restore: config tables (printer models, printer groups, filament library, settings)', () => {
-  test('export includes printer_models, printer_groups, filament_types, filament_colors, and settings', async () => {
-    const res = await request(app).get('/api/backup');
+describe("Backup export/restore: config tables (printer models, printer groups, filament library, settings)", () => {
+  test("export includes printer_models, printer_groups, filament_types, filament_colors, and settings", async () => {
+    const res = await request(app).get("/api/backup");
     expect(res.status).toBe(200);
 
     expect(res.body.printer_models).toEqual(
-      expect.arrayContaining([expect.objectContaining({ model_id: 'x1c', label: 'Bambu X1 Carbon', connector: 'bambu' })])
+      expect.arrayContaining([
+        expect.objectContaining({ model_id: "x1c", label: "Bambu X1 Carbon", connector: "bambu" }),
+      ]),
     );
     expect(res.body.printer_groups).toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'Bambu Farm' })])
+      expect.arrayContaining([expect.objectContaining({ name: "Bambu Farm" })]),
     );
     expect(res.body.filament_types).toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'PLA' }), expect.objectContaining({ name: 'PETG' })])
+      expect.arrayContaining([
+        expect.objectContaining({ name: "PLA" }),
+        expect.objectContaining({ name: "PETG" }),
+      ]),
     );
     expect(res.body.filament_colors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'Galaxy Black', hex_color: '#1a1a1a' }),
-        expect.objectContaining({ name: 'Signal Red', hex_color: '#cc0000' }),
-      ])
+        expect.objectContaining({ name: "Galaxy Black", hex_color: "#1a1a1a" }),
+        expect.objectContaining({ name: "Signal Red", hex_color: "#cc0000" }),
+      ]),
     );
     expect(res.body.settings).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ key: 'farm_name', value: 'Test Farm' }),
-        expect.objectContaining({ key: 'dispatch_batch_size', value: '5' }),
-      ])
+        expect.objectContaining({ key: "farm_name", value: "Test Farm" }),
+        expect.objectContaining({ key: "dispatch_batch_size", value: "5" }),
+      ]),
     );
   });
 
-  test('restore round-trips printer models, filament library (preserving type/color FK relationships), and settings', async () => {
-    const exportRes = await request(app).get('/api/backup');
+  test("restore round-trips printer models, filament library (preserving type/color FK relationships), and settings", async () => {
+    const exportRes = await request(app).get("/api/backup");
     expect(exportRes.status).toBe(200);
     const backupFile = writeTempBackupFile(exportRes.body);
 
@@ -366,7 +381,7 @@ describe('Backup export/restore: config tables (printer models, printer groups, 
       db.prepare("UPDATE printer_groups SET created_at = 0").run();
       db.prepare("UPDATE settings SET value = 'Wiped Farm' WHERE key = 'farm_name'").run();
 
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(200);
       expect(restoreRes.body.ok).toBe(true);
       expect(restoreRes.body.printer_models).toBe(1);
@@ -374,39 +389,43 @@ describe('Backup export/restore: config tables (printer models, printer groups, 
       expect(restoreRes.body.filament_types).toBe(2);
       expect(restoreRes.body.filament_colors).toBe(2);
 
-      const model = db.prepare('SELECT * FROM printer_models WHERE model_id = ?').get('x1c');
-      expect(model).toMatchObject({ label: 'Bambu X1 Carbon', connector: 'bambu' });
+      const model = db.prepare("SELECT * FROM printer_models WHERE model_id = ?").get("x1c");
+      expect(model).toMatchObject({ label: "Bambu X1 Carbon", connector: "bambu" });
 
-      const group = db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Bambu Farm');
+      const group = db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Bambu Farm");
       expect(group.created_at).not.toBe(0);
 
       // Confirm each restored color's type_id resolves to the *correct* filament_types row
       // by name, not just to some row that happens to satisfy the FK.
-      const black = db.prepare(`
+      const black = db
+        .prepare(`
         SELECT ft.name AS type_name, fc.hex_color FROM filament_colors fc
         JOIN filament_types ft ON ft.id = fc.type_id
         WHERE fc.name = 'Galaxy Black'
-      `).get();
-      expect(black.type_name).toBe('PLA');
-      expect(black.hex_color).toBe('#1a1a1a');
+      `)
+        .get();
+      expect(black.type_name).toBe("PLA");
+      expect(black.hex_color).toBe("#1a1a1a");
 
-      const red = db.prepare(`
+      const red = db
+        .prepare(`
         SELECT ft.name AS type_name, fc.hex_color FROM filament_colors fc
         JOIN filament_types ft ON ft.id = fc.type_id
         WHERE fc.name = 'Signal Red'
-      `).get();
-      expect(red.type_name).toBe('PETG');
-      expect(red.hex_color).toBe('#cc0000');
+      `)
+        .get();
+      expect(red.type_name).toBe("PETG");
+      expect(red.hex_color).toBe("#cc0000");
 
       const farmName = db.prepare("SELECT value FROM settings WHERE key = 'farm_name'").get();
-      expect(farmName.value).toBe('Test Farm');
+      expect(farmName.value).toBe("Test Farm");
     } finally {
       fs.unlinkSync(backupFile);
     }
   });
 
-  test('restoring an older backup missing printer_models/printer_groups/filament/settings keys leaves current config untouched', async () => {
-    const exportRes = await request(app).get('/api/backup');
+  test("restoring an older backup missing printer_models/printer_groups/filament/settings keys leaves current config untouched", async () => {
+    const exportRes = await request(app).get("/api/backup");
     const backup = exportRes.body;
     // Simulate a pre-this-feature backup: strip the keys entirely rather than leaving
     // them as empty arrays, matching what an old export actually produced.
@@ -418,24 +437,30 @@ describe('Backup export/restore: config tables (printer models, printer groups, 
     const backupFile = writeTempBackupFile(backup);
 
     try {
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(200);
       expect(restoreRes.body.ok).toBe(true);
 
-      const model = db.prepare('SELECT * FROM printer_models WHERE model_id = ?').get('x1c');
-      expect(model).toMatchObject({ label: 'Bambu X1 Carbon', connector: 'bambu' });
+      const model = db.prepare("SELECT * FROM printer_models WHERE model_id = ?").get("x1c");
+      expect(model).toMatchObject({ label: "Bambu X1 Carbon", connector: "bambu" });
 
-      const group = db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Bambu Farm');
+      const group = db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Bambu Farm");
       expect(group).toBeTruthy();
 
-      const types = db.prepare('SELECT name FROM filament_types ORDER BY name').all().map(t => t.name);
-      expect(types).toEqual(['PETG', 'PLA']);
+      const types = db
+        .prepare("SELECT name FROM filament_types ORDER BY name")
+        .all()
+        .map((t) => t.name);
+      expect(types).toEqual(["PETG", "PLA"]);
 
-      const colors = db.prepare('SELECT name FROM filament_colors ORDER BY name').all().map(c => c.name);
-      expect(colors).toEqual(['Galaxy Black', 'Signal Red']);
+      const colors = db
+        .prepare("SELECT name FROM filament_colors ORDER BY name")
+        .all()
+        .map((c) => c.name);
+      expect(colors).toEqual(["Galaxy Black", "Signal Red"]);
 
       const farmName = db.prepare("SELECT value FROM settings WHERE key = 'farm_name'").get();
-      expect(farmName.value).toBe('Test Farm');
+      expect(farmName.value).toBe("Test Farm");
     } finally {
       fs.unlinkSync(backupFile);
     }
@@ -447,22 +472,24 @@ describe('Backup export/restore: config tables (printer models, printer groups, 
 // resolves outside GCODE_DIR, so a crafted backup could overwrite arbitrary files the server
 // process can write to instead of only restoring gcode files. Fixed by rejecting any
 // gcode_files key that isn't a bare filename before writing anything to disk.
-describe('Backup restore — gcode_files path traversal', () => {
-  test('rejects a gcode_files key that would escape GCODE_DIR and writes nothing', async () => {
-    const exportRes = await request(app).get('/api/backup');
+describe("Backup restore — gcode_files path traversal", () => {
+  test("rejects a gcode_files key that would escape GCODE_DIR and writes nothing", async () => {
+    const exportRes = await request(app).get("/api/backup");
     const backup = exportRes.body;
     backup.gcode_files = {
-      '../../server/index.js': Buffer.from('malicious payload').toString('base64'),
+      "../../server/index.js": Buffer.from("malicious payload").toString("base64"),
     };
     const backupFile = writeTempBackupFile(backup);
 
-    const writeSpy = jest.spyOn(fs, 'writeFileSync');
+    const writeSpy = jest.spyOn(fs, "writeFileSync");
     try {
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(400);
       expect(restoreRes.body.error).toMatch(/invalid gcode file name/i);
 
-      const gcodeWrites = writeSpy.mock.calls.filter(([p]) => typeof p === 'string' && p.includes(`${path.sep}gcode${path.sep}`));
+      const gcodeWrites = writeSpy.mock.calls.filter(
+        ([p]) => typeof p === "string" && p.includes(`${path.sep}gcode${path.sep}`),
+      );
       expect(gcodeWrites.length).toBe(0);
     } finally {
       writeSpy.mockRestore();
@@ -471,13 +498,13 @@ describe('Backup restore — gcode_files path traversal', () => {
   });
 
   test('rejects a bare ".." gcode_files key', async () => {
-    const exportRes = await request(app).get('/api/backup');
+    const exportRes = await request(app).get("/api/backup");
     const backup = exportRes.body;
-    backup.gcode_files = { '..': Buffer.from('malicious payload').toString('base64') };
+    backup.gcode_files = { "..": Buffer.from("malicious payload").toString("base64") };
     const backupFile = writeTempBackupFile(backup);
 
     try {
-      const restoreRes = await request(app).post('/api/backup/restore').attach('file', backupFile);
+      const restoreRes = await request(app).post("/api/backup/restore").attach("file", backupFile);
       expect(restoreRes.status).toBe(400);
     } finally {
       fs.unlinkSync(backupFile);

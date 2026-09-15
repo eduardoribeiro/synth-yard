@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 // Circular progress ring that fills up between polls, giving the operator
 // a visual countdown to the next refresh.
-export default function PollTimer({ lastPolled, intervalMs = 15000, size = 20, stroke = '#3b82f6', track = '#2d3748' }) {
+export default function PollTimer({
+  lastPolled,
+  intervalMs = 15000,
+  size = 20,
+  stroke = "#3b82f6",
+  track = "#2d3748",
+}) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -23,12 +29,21 @@ export default function PollTimer({ lastPolled, intervalMs = 15000, size = 20, s
     <svg
       width={size}
       height={size}
-      style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
+      style={{ transform: "rotate(-90deg)", flexShrink: 0 }}
       title={`Last refresh ${Math.round(elapsed / 1000)}s ago`}
     >
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={strokeWidth} />
       <circle
-        cx={size / 2} cy={size / 2} r={r}
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={track}
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
         fill="none"
         stroke={stroke}
         strokeWidth={strokeWidth}

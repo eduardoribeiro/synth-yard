@@ -2,16 +2,16 @@
 // Writes to server/data/backups/farm-YYYY-MM-DD-HH.db
 // Keeps the most recent KEEP_COUNT files; older ones are deleted automatically.
 
-const path = require('path');
-const fs   = require('fs');
+const path = require("path");
+const fs = require("fs");
 
-const BACKUP_DIR  = path.join(__dirname, 'data', 'backups');
-const KEEP_COUNT  = 24;           // 24 hourly snapshots = 1 day of point-in-time recovery
+const BACKUP_DIR = path.join(__dirname, "data", "backups");
+const KEEP_COUNT = 24; // 24 hourly snapshots = 1 day of point-in-time recovery
 const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 function timestamp() {
   const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}`;
 }
 
@@ -24,15 +24,16 @@ async function runBackup(db) {
     console.log(`[backup] Saved ${path.basename(dest)}`);
     pruneOldBackups();
   } catch (err) {
-    console.error('[backup] Failed:', err.message);
+    console.error("[backup] Failed:", err.message);
   }
 }
 
 function pruneOldBackups() {
   if (!fs.existsSync(BACKUP_DIR)) return;
-  const files = fs.readdirSync(BACKUP_DIR)
-    .filter(f => f.startsWith('farm-') && f.endsWith('.db'))
-    .sort()   // lexicographic sort on YYYY-MM-DD-HH puts oldest first
+  const files = fs
+    .readdirSync(BACKUP_DIR)
+    .filter((f) => f.startsWith("farm-") && f.endsWith(".db"))
+    .sort() // lexicographic sort on YYYY-MM-DD-HH puts oldest first
     .reverse(); // newest first
 
   for (const f of files.slice(KEEP_COUNT)) {

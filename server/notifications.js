@@ -17,7 +17,7 @@ function list() {
 }
 
 function dismiss(id) {
-  const idx = _store.findIndex(n => n.id === id);
+  const idx = _store.findIndex((n) => n.id === id);
   if (idx === -1) return false;
   _store.splice(idx, 1);
   return true;

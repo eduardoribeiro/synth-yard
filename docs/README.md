@@ -30,6 +30,7 @@ Prefer Docker over a local Node.js install? `docker compose up --build synth-yar
 | [docs/driver-authoring.md](driver-authoring.md) | Connector authoring guide for manufacturers and contributors: driver contract, canonical statuses, registration checklist, hardware test matrix |
 | [docs/filaments.md](filaments.md) | Filament Library — admin-managed type and color lists, API endpoints, client usage |
 | [docs/docker-publish.md](docker-publish.md) | CI workflow that builds and publishes multi-arch Docker images to GHCR |
+| [docs/tooling.md](tooling.md) | OXC linting and formatting commands, plus gradual TypeScript migration guidance |
 
 ## Project Structure
 

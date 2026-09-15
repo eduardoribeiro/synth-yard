@@ -5,15 +5,15 @@
 // route's own contract in isolation: request/response shape, 404, and the
 // empty-array-clears-to-NULL behavior the cascade depends on.
 
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
 
 let db;
 let app;
 
 beforeEach(() => {
-  db = new Database(':memory:');
+  db = new Database(":memory:");
   db.exec(`
     CREATE TABLE projects (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,37 +37,45 @@ beforeEach(() => {
   jest.resetModules();
   app = express();
   app.use(express.json());
-  app.use('/api/projects', require('../routes/projects')(db));
+  app.use("/api/projects", require("../routes/projects")(db));
 });
 
 function seedProject() {
   const now = Date.now();
-  const r = db.prepare(`
+  const r = db
+    .prepare(`
     INSERT INTO projects (name, status, created_at, updated_at) VALUES ('Proj', 'active', ?, ?)
-  `).run(now, now);
+  `)
+    .run(now, now);
   return r.lastInsertRowid;
 }
 
-describe('PUT /api/projects/:id/groups', () => {
-  test('404 for an unknown project', async () => {
-    const res = await request(app).put('/api/projects/999/groups').send({ allowed_groups: ['Rack A'] });
+describe("PUT /api/projects/:id/groups", () => {
+  test("404 for an unknown project", async () => {
+    const res = await request(app)
+      .put("/api/projects/999/groups")
+      .send({ allowed_groups: ["Rack A"] });
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/not found/i);
   });
 
-  test('stores the array as a JSON string and returns the updated project', async () => {
+  test("stores the array as a JSON string and returns the updated project", async () => {
     const id = seedProject();
-    const res = await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: ['Rack A', 'Rack B'] });
+    const res = await request(app)
+      .put(`/api/projects/${id}/groups`)
+      .send({ allowed_groups: ["Rack A", "Rack B"] });
     expect(res.status).toBe(200);
-    expect(res.body.allowed_groups).toBe(JSON.stringify(['Rack A', 'Rack B']));
+    expect(res.body.allowed_groups).toBe(JSON.stringify(["Rack A", "Rack B"]));
 
-    const row = db.prepare('SELECT allowed_groups FROM projects WHERE id = ?').get(id);
-    expect(row.allowed_groups).toBe(JSON.stringify(['Rack A', 'Rack B']));
+    const row = db.prepare("SELECT allowed_groups FROM projects WHERE id = ?").get(id);
+    expect(row.allowed_groups).toBe(JSON.stringify(["Rack A", "Rack B"]));
   });
 
   test('an empty array clears the restriction to NULL, not "[]"', async () => {
     const id = seedProject();
-    await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: ['Rack A'] });
+    await request(app)
+      .put(`/api/projects/${id}/groups`)
+      .send({ allowed_groups: ["Rack A"] });
 
     const res = await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: [] });
     expect(res.status).toBe(200);
@@ -75,31 +83,37 @@ describe('PUT /api/projects/:id/groups', () => {
 
     // Load-bearing for the scheduler's COALESCE cascade: '[]' is non-NULL and
     // would match zero printers, silently freezing dispatch for the project.
-    const row = db.prepare('SELECT allowed_groups FROM projects WHERE id = ?').get(id);
+    const row = db.prepare("SELECT allowed_groups FROM projects WHERE id = ?").get(id);
     expect(row.allowed_groups).toBeNull();
   });
 
-  test('an omitted allowed_groups body field also clears to NULL', async () => {
+  test("an omitted allowed_groups body field also clears to NULL", async () => {
     const id = seedProject();
-    await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: ['Rack A'] });
+    await request(app)
+      .put(`/api/projects/${id}/groups`)
+      .send({ allowed_groups: ["Rack A"] });
 
     const res = await request(app).put(`/api/projects/${id}/groups`).send({});
     expect(res.status).toBe(200);
     expect(res.body.allowed_groups).toBeNull();
   });
 
-  test('trims whitespace and drops empty entries from the array', async () => {
+  test("trims whitespace and drops empty entries from the array", async () => {
     const id = seedProject();
-    const res = await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: [' Rack A ', '', '  '] });
+    const res = await request(app)
+      .put(`/api/projects/${id}/groups`)
+      .send({ allowed_groups: [" Rack A ", "", "  "] });
     expect(res.status).toBe(200);
-    expect(res.body.allowed_groups).toBe(JSON.stringify(['Rack A']));
+    expect(res.body.allowed_groups).toBe(JSON.stringify(["Rack A"]));
   });
 
-  test('does not touch other project fields', async () => {
+  test("does not touch other project fields", async () => {
     const id = seedProject();
-    const before = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    const before = db.prepare("SELECT * FROM projects WHERE id = ?").get(id);
 
-    const res = await request(app).put(`/api/projects/${id}/groups`).send({ allowed_groups: ['Rack A'] });
+    const res = await request(app)
+      .put(`/api/projects/${id}/groups`)
+      .send({ allowed_groups: ["Rack A"] });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe(before.name);
     expect(res.body.status).toBe(before.status);

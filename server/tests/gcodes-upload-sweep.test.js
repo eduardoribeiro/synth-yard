@@ -8,36 +8,39 @@
 // file in this codebase, so a second require('../routes/gcodes') in the same process
 // would otherwise reuse that router and only the first-registered handler would run.
 
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
-const path     = require('path');
-const fs       = require('fs');
-const os       = require('os');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
 
-const GCODE_DIR = path.join(__dirname, '..', 'gcode');
+const GCODE_DIR = path.join(__dirname, "..", "gcode");
 
 let db;
 const uploadedFiles = [];
 
 function makeTempFile(name) {
   const p = path.join(os.tmpdir(), name);
-  fs.writeFileSync(p, Buffer.from('G28\nG1 X0 Y0 Z0'));
+  fs.writeFileSync(p, Buffer.from("G28\nG1 X0 Y0 Z0"));
   return p;
 }
 
 function buildApp(scheduler) {
   jest.resetModules();
-  const gcodesRouterFactory = require('../routes/gcodes');
+  const gcodesRouterFactory = require("../routes/gcodes");
   const app = express();
   app.use(express.json());
-  app.use('/api/gcodes', scheduler !== undefined ? gcodesRouterFactory(db, scheduler) : gcodesRouterFactory(db));
+  app.use(
+    "/api/gcodes",
+    scheduler !== undefined ? gcodesRouterFactory(db, scheduler) : gcodesRouterFactory(db),
+  );
   return app;
 }
 
 beforeEach(() => {
-  db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,62 +71,70 @@ beforeEach(() => {
   `);
 
   const now = Date.now();
-  db.prepare('INSERT INTO projects (name, created_at, updated_at) VALUES (?, ?, ?)').run('Proj', now, now);
-  db.prepare('INSERT INTO parts (project_id, name, target_qty, created_at, updated_at) VALUES (1, ?, 10, ?, ?)').run('Part A', now, now);
+  db.prepare("INSERT INTO projects (name, created_at, updated_at) VALUES (?, ?, ?)").run(
+    "Proj",
+    now,
+    now,
+  );
+  db.prepare(
+    "INSERT INTO parts (project_id, name, target_qty, created_at, updated_at) VALUES (1, ?, 10, ?, ?)",
+  ).run("Part A", now, now);
 
   if (!fs.existsSync(GCODE_DIR)) fs.mkdirSync(GCODE_DIR, { recursive: true });
 });
 
 afterAll(() => {
   for (const f of uploadedFiles) {
-    try { fs.unlinkSync(path.join(GCODE_DIR, f)); } catch (_) {}
+    try {
+      fs.unlinkSync(path.join(GCODE_DIR, f));
+    } catch (_) {}
   }
 });
 
-describe('POST /api/gcodes/upload: sweeps for idle printers', () => {
-  test('calls sweepIdlePrinters after a successful upload', async () => {
+describe("POST /api/gcodes/upload: sweeps for idle printers", () => {
+  test("calls sweepIdlePrinters after a successful upload", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
 
-    const tmp = makeTempFile('sweep_test.bgcode');
+    const tmp = makeTempFile("sweep_test.bgcode");
     const res = await request(app)
-      .post('/api/gcodes/upload')
-      .field('part_id', '1')
-      .field('parts_per_plate', '4')
-      .field('printer_model', 'mk4s')
-      .attach('file', tmp);
+      .post("/api/gcodes/upload")
+      .field("part_id", "1")
+      .field("parts_per_plate", "4")
+      .field("printer_model", "mk4s")
+      .attach("file", tmp);
 
     expect(res.status).toBe(201);
     uploadedFiles.push(res.body.filepath);
     expect(sweepIdlePrinters).toHaveBeenCalledTimes(1);
   });
 
-  test('does not call sweepIdlePrinters when the upload is rejected (missing fields)', async () => {
+  test("does not call sweepIdlePrinters when the upload is rejected (missing fields)", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
 
-    const tmp = makeTempFile('sweep_reject.bgcode');
+    const tmp = makeTempFile("sweep_reject.bgcode");
     const res = await request(app)
-      .post('/api/gcodes/upload')
-      .field('part_id', '1')
+      .post("/api/gcodes/upload")
+      .field("part_id", "1")
       // parts_per_plate omitted, should 400 before ever reaching the sweep
-      .field('printer_model', 'mk4s')
-      .attach('file', tmp);
+      .field("printer_model", "mk4s")
+      .attach("file", tmp);
 
     expect(res.status).toBe(400);
     expect(sweepIdlePrinters).not.toHaveBeenCalled();
   });
 
-  test('does not throw when no scheduler is provided', async () => {
+  test("does not throw when no scheduler is provided", async () => {
     const app = buildApp(null);
 
-    const tmp = makeTempFile('sweep_none.bgcode');
+    const tmp = makeTempFile("sweep_none.bgcode");
     const res = await request(app)
-      .post('/api/gcodes/upload')
-      .field('part_id', '1')
-      .field('parts_per_plate', '4')
-      .field('printer_model', 'mk4s')
-      .attach('file', tmp);
+      .post("/api/gcodes/upload")
+      .field("part_id", "1")
+      .field("parts_per_plate", "4")
+      .field("printer_model", "mk4s")
+      .attach("file", tmp);
 
     expect(res.status).toBe(201);
     uploadedFiles.push(res.body.filepath);

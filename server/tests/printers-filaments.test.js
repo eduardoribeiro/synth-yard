@@ -3,18 +3,18 @@
 //   PUT /api/printers/:id — loaded_material / loaded_color fields
 //   Auto-registration into printer_groups on create/update
 
-jest.mock('../http', () => ({ requestJson: jest.fn() }));
-const { requestJson } = require('../http');
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
+jest.mock("../http", () => ({ requestJson: jest.fn() }));
+const { requestJson } = require("../http");
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
 
 let db;
 let app;
 
 beforeAll(() => {
-  db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE printers (
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,147 +74,156 @@ beforeAll(() => {
     INSERT INTO printers (name, ip, api_key, group_name, model, is_active, loaded_material, loaded_color, created_at)
     VALUES (?, ?, '', ?, 'mk4s', ?, ?, ?, ?)
   `);
-  ins.run('P1', '192.168.1.1', 'Rack A', 1, 'PLA',  'Black',  now);
-  ins.run('P2', '192.168.1.2', 'Rack A', 1, 'PLA',  'White',  now);
-  ins.run('P3', '192.168.1.3', 'Rack B', 1, 'PETG', 'Black',  now);
-  ins.run('P4', '192.168.1.4', 'Rack B', 1, null,    null,     now);
-  ins.run('P5', '192.168.1.5', null,     0, 'ABS',  'Red',    now); // decommissioned
+  ins.run("P1", "192.168.1.1", "Rack A", 1, "PLA", "Black", now);
+  ins.run("P2", "192.168.1.2", "Rack A", 1, "PLA", "White", now);
+  ins.run("P3", "192.168.1.3", "Rack B", 1, "PETG", "Black", now);
+  ins.run("P4", "192.168.1.4", "Rack B", 1, null, null, now);
+  ins.run("P5", "192.168.1.5", null, 0, "ABS", "Red", now); // decommissioned
 
   app = express();
   app.use(express.json());
-  app.use('/api/printers', require('../routes/printers')(db));
+  app.use("/api/printers", require("../routes/printers")(db));
 });
 
 // ── GET /api/printers/filaments ───────────────────────────────────────────────
 
-describe('GET /api/printers/filaments', () => {
-  test('returns distinct materials and colors', async () => {
-    const res = await request(app).get('/api/printers/filaments');
+describe("GET /api/printers/filaments", () => {
+  test("returns distinct materials and colors", async () => {
+    const res = await request(app).get("/api/printers/filaments");
     expect(res.status).toBe(200);
-    expect(res.body.materials).toEqual(['ABS', 'PETG', 'PLA']); // sorted, deduped
-    expect(res.body.colors).toEqual(['Black', 'Red', 'White']); // sorted, deduped
+    expect(res.body.materials).toEqual(["ABS", "PETG", "PLA"]); // sorted, deduped
+    expect(res.body.colors).toEqual(["Black", "Red", "White"]); // sorted, deduped
   });
 
-  test('does not include null or empty values', async () => {
-    const res = await request(app).get('/api/printers/filaments');
+  test("does not include null or empty values", async () => {
+    const res = await request(app).get("/api/printers/filaments");
     expect(res.body.materials).not.toContain(null);
     expect(res.body.colors).not.toContain(null);
-    expect(res.body.materials).not.toContain('');
-    expect(res.body.colors).not.toContain('');
+    expect(res.body.materials).not.toContain("");
+    expect(res.body.colors).not.toContain("");
   });
-
 });
 
 // The filaments query logic tested directly — the printers router uses a module-level
 // express.Router(), so a second factory call in the same Jest module registry would
 // share the first call's db. Test the underlying SQL instead.
-describe('filaments query logic — direct SQL', () => {
-  test('returns empty arrays when no printers have material configured', () => {
-    const testDb = new Database(':memory:');
+describe("filaments query logic — direct SQL", () => {
+  test("returns empty arrays when no printers have material configured", () => {
+    const testDb = new Database(":memory:");
     testDb.exec(`CREATE TABLE printers (id INTEGER PRIMARY KEY,
       loaded_material TEXT, loaded_color TEXT, is_active INTEGER DEFAULT 1)`);
     // Two printers with NULL material/color
     testDb.exec(`INSERT INTO printers VALUES (1, NULL, NULL, 1)`);
     testDb.exec(`INSERT INTO printers VALUES (2, '', '', 1)`);
 
-    const materials = testDb.prepare(
-      "SELECT DISTINCT loaded_material FROM printers WHERE loaded_material IS NOT NULL AND loaded_material != '' ORDER BY loaded_material"
-    ).all().map(r => r.loaded_material);
-    const colors = testDb.prepare(
-      "SELECT DISTINCT loaded_color FROM printers WHERE loaded_color IS NOT NULL AND loaded_color != '' ORDER BY loaded_color"
-    ).all().map(r => r.loaded_color);
+    const materials = testDb
+      .prepare(
+        "SELECT DISTINCT loaded_material FROM printers WHERE loaded_material IS NOT NULL AND loaded_material != '' ORDER BY loaded_material",
+      )
+      .all()
+      .map((r) => r.loaded_material);
+    const colors = testDb
+      .prepare(
+        "SELECT DISTINCT loaded_color FROM printers WHERE loaded_color IS NOT NULL AND loaded_color != '' ORDER BY loaded_color",
+      )
+      .all()
+      .map((r) => r.loaded_color);
 
     expect(materials).toEqual([]);
     expect(colors).toEqual([]);
   });
 
-  test('deduplicates and sorts when multiple printers share the same material', () => {
-    const testDb = new Database(':memory:');
+  test("deduplicates and sorts when multiple printers share the same material", () => {
+    const testDb = new Database(":memory:");
     testDb.exec(`CREATE TABLE printers (id INTEGER PRIMARY KEY,
       loaded_material TEXT, loaded_color TEXT, is_active INTEGER DEFAULT 1)`);
     testDb.exec(`INSERT INTO printers VALUES (1, 'PLA', 'Black', 1)`);
     testDb.exec(`INSERT INTO printers VALUES (2, 'PLA', 'White', 1)`);
     testDb.exec(`INSERT INTO printers VALUES (3, 'PETG', 'Black', 1)`);
 
-    const materials = testDb.prepare(
-      "SELECT DISTINCT loaded_material FROM printers WHERE loaded_material IS NOT NULL AND loaded_material != '' ORDER BY loaded_material"
-    ).all().map(r => r.loaded_material);
-    const colors = testDb.prepare(
-      "SELECT DISTINCT loaded_color FROM printers WHERE loaded_color IS NOT NULL AND loaded_color != '' ORDER BY loaded_color"
-    ).all().map(r => r.loaded_color);
+    const materials = testDb
+      .prepare(
+        "SELECT DISTINCT loaded_material FROM printers WHERE loaded_material IS NOT NULL AND loaded_material != '' ORDER BY loaded_material",
+      )
+      .all()
+      .map((r) => r.loaded_material);
+    const colors = testDb
+      .prepare(
+        "SELECT DISTINCT loaded_color FROM printers WHERE loaded_color IS NOT NULL AND loaded_color != '' ORDER BY loaded_color",
+      )
+      .all()
+      .map((r) => r.loaded_color);
 
-    expect(materials).toEqual(['PETG', 'PLA']);
-    expect(colors).toEqual(['Black', 'White']);
+    expect(materials).toEqual(["PETG", "PLA"]);
+    expect(colors).toEqual(["Black", "White"]);
   });
 });
 
 // ── PUT /api/printers/:id — loaded_material / loaded_color ────────────────────
 
-describe('PUT /api/printers/:id — material and color', () => {
+describe("PUT /api/printers/:id — material and color", () => {
   let printerId;
 
   beforeAll(() => {
-    const row = db.prepare(
-      "INSERT INTO printers (name, ip, api_key, model, is_active, created_at) VALUES ('EditMe', '10.0.0.1', '', 'mk4s', 1, ?)"
-    ).run(Date.now());
+    const row = db
+      .prepare(
+        "INSERT INTO printers (name, ip, api_key, model, is_active, created_at) VALUES ('EditMe', '10.0.0.1', '', 'mk4s', 1, ?)",
+      )
+      .run(Date.now());
     printerId = row.lastInsertRowid;
   });
 
-  test('sets loaded_material and loaded_color', async () => {
+  test("sets loaded_material and loaded_color", async () => {
     const res = await request(app)
       .put(`/api/printers/${printerId}`)
-      .send({ loaded_material: 'PLA', loaded_color: 'Blue' });
+      .send({ loaded_material: "PLA", loaded_color: "Blue" });
     expect(res.status).toBe(200);
-    expect(res.body.loaded_material).toBe('PLA');
-    expect(res.body.loaded_color).toBe('Blue');
+    expect(res.body.loaded_material).toBe("PLA");
+    expect(res.body.loaded_color).toBe("Blue");
   });
 
-  test('updates material without touching color', async () => {
+  test("updates material without touching color", async () => {
     // Only send loaded_material — color should remain 'Blue' from previous test
     const res = await request(app)
       .put(`/api/printers/${printerId}`)
-      .send({ loaded_material: 'PETG' });
+      .send({ loaded_material: "PETG" });
     expect(res.status).toBe(200);
-    expect(res.body.loaded_material).toBe('PETG');
-    expect(res.body.loaded_color).toBe('Blue');
+    expect(res.body.loaded_material).toBe("PETG");
+    expect(res.body.loaded_color).toBe("Blue");
   });
 
-  test('clears loaded_material when empty string is sent', async () => {
-    const res = await request(app)
-      .put(`/api/printers/${printerId}`)
-      .send({ loaded_material: '' });
+  test("clears loaded_material when empty string is sent", async () => {
+    const res = await request(app).put(`/api/printers/${printerId}`).send({ loaded_material: "" });
     expect(res.status).toBe(200);
     expect(res.body.loaded_material).toBeNull();
-    expect(res.body.loaded_color).toBe('Blue'); // color unchanged
+    expect(res.body.loaded_color).toBe("Blue"); // color unchanged
   });
 
-  test('clears loaded_color when null is sent', async () => {
+  test("clears loaded_color when null is sent", async () => {
     // First restore material so we can verify independent clearing
     await request(app)
       .put(`/api/printers/${printerId}`)
-      .send({ loaded_material: 'ASA', loaded_color: 'Grey' });
+      .send({ loaded_material: "ASA", loaded_color: "Grey" });
 
-    const res = await request(app)
-      .put(`/api/printers/${printerId}`)
-      .send({ loaded_color: null });
+    const res = await request(app).put(`/api/printers/${printerId}`).send({ loaded_color: null });
     expect(res.status).toBe(200);
-    expect(res.body.loaded_material).toBe('ASA');
+    expect(res.body.loaded_material).toBe("ASA");
     expect(res.body.loaded_color).toBeNull();
   });
 
-  test('omitting both fields leaves them unchanged', async () => {
+  test("omitting both fields leaves them unchanged", async () => {
     // Set known state
     await request(app)
       .put(`/api/printers/${printerId}`)
-      .send({ loaded_material: 'TPU', loaded_color: 'Orange' });
+      .send({ loaded_material: "TPU", loaded_color: "Orange" });
 
     // Update something else entirely, don't touch material/color
     const res = await request(app)
       .put(`/api/printers/${printerId}`)
-      .send({ serial_number: 'SN-9999' });
+      .send({ serial_number: "SN-9999" });
     expect(res.status).toBe(200);
-    expect(res.body.loaded_material).toBe('TPU');
-    expect(res.body.loaded_color).toBe('Orange');
+    expect(res.body.loaded_material).toBe("TPU");
+    expect(res.body.loaded_color).toBe("Orange");
   });
 });
 
@@ -223,87 +232,102 @@ describe('PUT /api/printers/:id — material and color', () => {
 // printer carrying it is later reassigned elsewhere: this is what the
 // registry exists to fix. Create/update are the two places a new name enters.
 
-describe('printer_groups auto-registration', () => {
-  test('POST /api/printers registers a new group_name', async () => {
+describe("printer_groups auto-registration", () => {
+  test("POST /api/printers registers a new group_name", async () => {
     const res = await request(app)
-      .post('/api/printers')
-      .send({ name: 'NewOne', ip: '10.0.0.9', api_key: 'k', model: 'mk4s', group_name: 'Rack Z' });
+      .post("/api/printers")
+      .send({ name: "NewOne", ip: "10.0.0.9", api_key: "k", model: "mk4s", group_name: "Rack Z" });
     expect(res.status).toBe(201);
-    expect(db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Rack Z')).toBeTruthy();
+    expect(db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Rack Z")).toBeTruthy();
   });
 
-  test('PUT /api/printers/:id registers a new group_name', async () => {
-    const row = db.prepare(
-      "INSERT INTO printers (name, ip, api_key, model, is_active, created_at) VALUES ('GroupEditMe', '10.0.0.8', '', 'mk4s', 1, ?)"
-    ).run(Date.now());
+  test("PUT /api/printers/:id registers a new group_name", async () => {
+    const row = db
+      .prepare(
+        "INSERT INTO printers (name, ip, api_key, model, is_active, created_at) VALUES ('GroupEditMe', '10.0.0.8', '', 'mk4s', 1, ?)",
+      )
+      .run(Date.now());
 
     const res = await request(app)
       .put(`/api/printers/${row.lastInsertRowid}`)
-      .send({ group_name: 'Rack Q' });
+      .send({ group_name: "Rack Q" });
     expect(res.status).toBe(200);
-    expect(db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Rack Q')).toBeTruthy();
+    expect(db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Rack Q")).toBeTruthy();
   });
 
-  test('the registry keeps a group even after the only printer carrying it moves away', async () => {
-    const created = await request(app)
-      .post('/api/printers')
-      .send({ name: 'Mover', ip: '10.0.0.7', api_key: 'k', model: 'mk4s', group_name: 'Rack Solo' });
-    expect(db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Rack Solo')).toBeTruthy();
+  test("the registry keeps a group even after the only printer carrying it moves away", async () => {
+    const created = await request(app).post("/api/printers").send({
+      name: "Mover",
+      ip: "10.0.0.7",
+      api_key: "k",
+      model: "mk4s",
+      group_name: "Rack Solo",
+    });
+    expect(db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Rack Solo")).toBeTruthy();
 
     // Reassign the only printer that ever carried "Rack Solo" elsewhere.
-    await request(app)
-      .put(`/api/printers/${created.body.id}`)
-      .send({ group_name: 'Rack Other' });
+    await request(app).put(`/api/printers/${created.body.id}`).send({ group_name: "Rack Other" });
 
     // No printer carries "Rack Solo" anymore, but the registry entry survives:
     // this is the exact bug the registry exists to fix.
-    expect(db.prepare('SELECT COUNT(*) AS c FROM printers WHERE group_name = ?').get('Rack Solo').c).toBe(0);
-    expect(db.prepare('SELECT * FROM printer_groups WHERE name = ?').get('Rack Solo')).toBeTruthy();
+    expect(
+      db.prepare("SELECT COUNT(*) AS c FROM printers WHERE group_name = ?").get("Rack Solo").c,
+    ).toBe(0);
+    expect(db.prepare("SELECT * FROM printer_groups WHERE name = ?").get("Rack Solo")).toBeTruthy();
   });
 });
 
-describe('Creality setup', () => {
-  test('creates and edits a Creality printer without an API key', async () => {
-    const added = await request(app).post('/api/printers').send({
-      name: 'K1_01', ip: '192.168.1.50', type: 'creality', model: 'k1',
+describe("Creality setup", () => {
+  test("creates and edits a Creality printer without an API key", async () => {
+    const added = await request(app).post("/api/printers").send({
+      name: "K1_01",
+      ip: "192.168.1.50",
+      type: "creality",
+      model: "k1",
     });
     expect(added.status).toBe(201);
-    expect(added.body.api_key).toBe('');
-    expect(added.body.type).toBe('creality');
-    const edited = await request(app).put(`/api/printers/${added.body.id}`).send({ ip: '192.168.1.51' });
+    expect(added.body.api_key).toBe("");
+    expect(added.body.type).toBe("creality");
+    const edited = await request(app)
+      .put(`/api/printers/${added.body.id}`)
+      .send({ ip: "192.168.1.51" });
     expect(edited.status).toBe(200);
-    expect(edited.body.ip).toBe('192.168.1.51');
-    expect(edited.body.type).toBe('creality');
+    expect(edited.body.ip).toBe("192.168.1.51");
+    expect(edited.body.type).toBe("creality");
   });
 
-  test('imports Creality printers without an api_key column', async () => {
-    const csv = 'name,ip,type,model\nK1_CSV,192.168.1.52,creality,k1\n';
-    const res = await request(app).post('/api/printers/import')
-      .attach('file', Buffer.from(csv), 'printers.csv');
+  test("imports Creality printers without an api_key column", async () => {
+    const csv = "name,ip,type,model\nK1_CSV,192.168.1.52,creality,k1\n";
+    const res = await request(app)
+      .post("/api/printers/import")
+      .attach("file", Buffer.from(csv), "printers.csv");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ imported: 1, skipped: 0, flagged: [] });
   });
 
-  test('raw status uses the shared HTTP adapter for PrusaLink', async () => {
-    requestJson.mockResolvedValueOnce({ printer: { state: 'IDLE' } });
+  test("raw status uses the shared HTTP adapter for PrusaLink", async () => {
+    requestJson.mockResolvedValueOnce({ printer: { state: "IDLE" } });
     const id = db.prepare("SELECT id FROM printers WHERE name = 'P1'").get().id;
     const res = await request(app).get(`/api/printers/${id}/raw-status`);
-    expect(res.body.raw).toEqual({ printer: { state: 'IDLE' } });
-    expect(requestJson).toHaveBeenCalledWith('http://192.168.1.1/api/v1/status', {
-      headers: { 'X-Api-Key': '' }, timeoutMs: 8000,
+    expect(res.body.raw).toEqual({ printer: { state: "IDLE" } });
+    expect(requestJson).toHaveBeenCalledWith("http://192.168.1.1/api/v1/status", {
+      headers: { "X-Api-Key": "" },
+      timeoutMs: 8000,
     });
   });
 
-  test('raw status uses the Creality driver', async () => {
-    const drivers = require('../drivers');
-    const spy = jest.spyOn(drivers, 'getDriver').mockReturnValue({
-      getRawStatus: jest.fn().mockResolvedValue({ deviceState: 1, printFileName: 'part.gcode' }),
+  test("raw status uses the Creality driver", async () => {
+    const drivers = require("../drivers");
+    const spy = jest.spyOn(drivers, "getDriver").mockReturnValue({
+      getRawStatus: jest.fn().mockResolvedValue({ deviceState: 1, printFileName: "part.gcode" }),
     });
     try {
       const id = db.prepare("SELECT id FROM printers WHERE name = 'K1_01'").get().id;
       const res = await request(app).get(`/api/printers/${id}/raw-status`);
-      expect(res.body.raw).toEqual({ deviceState: 1, printFileName: 'part.gcode' });
-      expect(spy).toHaveBeenCalledWith('creality');
-    } finally { spy.mockRestore(); }
+      expect(res.body.raw).toEqual({ deviceState: 1, printFileName: "part.gcode" });
+      expect(spy).toHaveBeenCalledWith("creality");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

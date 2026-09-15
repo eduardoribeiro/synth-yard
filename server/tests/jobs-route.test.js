@@ -6,15 +6,15 @@
 // already held; clients need both facts to avoid showing a stale "Printing"
 // badge for a job that is actually awaiting operator sign-off.
 
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
 
 let db;
 let app;
 
 beforeAll(() => {
-  db = new Database(':memory:');
+  db = new Database(":memory:");
   db.exec(`
     CREATE TABLE printers (id INTEGER PRIMARY KEY, name TEXT, ip TEXT, api_key TEXT DEFAULT '',
       model TEXT, status TEXT DEFAULT 'UNKNOWN', is_held INTEGER DEFAULT 0,
@@ -51,45 +51,45 @@ beforeAll(() => {
 
   app = express();
   app.use(express.json());
-  app.use('/api/jobs', require('../routes/jobs')(db));
+  app.use("/api/jobs", require("../routes/jobs")(db));
 });
 
-describe('GET /api/jobs', () => {
-  test('joins printer_is_held and printer_status for every job', async () => {
-    const res = await request(app).get('/api/jobs');
+describe("GET /api/jobs", () => {
+  test("joins printer_is_held and printer_status for every job", async () => {
+    const res = await request(app).get("/api/jobs");
     expect(res.status).toBe(200);
-    const job1 = res.body.find(j => j.id === 1);
-    const job2 = res.body.find(j => j.id === 2);
+    const job1 = res.body.find((j) => j.id === 1);
+    const job2 = res.body.find((j) => j.id === 2);
 
     expect(job1.printer_is_held).toBe(1);
-    expect(job1.printer_status).toBe('IDLE');
+    expect(job1.printer_status).toBe("IDLE");
 
     expect(job2.printer_is_held).toBe(0);
-    expect(job2.printer_status).toBe('PRINTING');
+    expect(job2.printer_status).toBe("PRINTING");
   });
 
-  test('a missed-finish job is still status printing at the data layer', async () => {
+  test("a missed-finish job is still status printing at the data layer", async () => {
     // The fix is display-only (Jobs.jsx derives "Awaiting Sign-off" from
     // printer_is_held + printer_status); the underlying jobs.status must be
     // left untouched until the operator resolves it via Set Ready/Bad Print.
-    const res = await request(app).get('/api/jobs?printer_id=1');
+    const res = await request(app).get("/api/jobs?printer_id=1");
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
-    expect(res.body[0].status).toBe('printing');
+    expect(res.body[0].status).toBe("printing");
     expect(res.body[0].printer_is_held).toBe(1);
   });
 });
 
-describe('GET /api/jobs/:id', () => {
-  test('includes printer_is_held and printer_status on a single job', async () => {
-    const res = await request(app).get('/api/jobs/1');
+describe("GET /api/jobs/:id", () => {
+  test("includes printer_is_held and printer_status on a single job", async () => {
+    const res = await request(app).get("/api/jobs/1");
     expect(res.status).toBe(200);
     expect(res.body.printer_is_held).toBe(1);
-    expect(res.body.printer_status).toBe('IDLE');
+    expect(res.body.printer_status).toBe("IDLE");
   });
 
-  test('404 for unknown job', async () => {
-    const res = await request(app).get('/api/jobs/999');
+  test("404 for unknown job", async () => {
+    const res = await request(app).get("/api/jobs/999");
     expect(res.status).toBe(404);
   });
 });

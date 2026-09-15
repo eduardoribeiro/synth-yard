@@ -5,13 +5,13 @@
 // All communication is plain HTTP — no persistent connection, no auth required on LAN.
 // Upload: POST multipart to /server/files/upload with print=true — starts immediately.
 
-const { requestJson, requestEmpty, fileBlob } = require('../http');
+const { requestJson, requestEmpty, fileBlob } = require("../http");
 
 const PORT = 7125;
 
 function base(printer) {
   // Strip any accidental protocol prefix or trailing slashes — field expects bare IP.
-  const ip = printer.ip.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const ip = printer.ip.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   return `http://${ip}:${PORT}`;
 }
 
@@ -19,37 +19,37 @@ function base(printer) {
 
 // Moonraker print_stats.state → canonical status
 const STATE_MAP = {
-  standby:   'IDLE',
-  printing:  'PRINTING',
-  paused:    'PAUSED',
-  complete:  'FINISHED',
-  error:     'ERROR',
-  cancelled: 'STOPPED',
+  standby: "IDLE",
+  printing: "PRINTING",
+  paused: "PAUSED",
+  complete: "FINISHED",
+  error: "ERROR",
+  cancelled: "STOPPED",
 };
 
 async function getStatus(printer) {
   try {
     const data = await requestJson(`${base(printer)}/printer/objects/query`, {
-      query: { print_stats: '', virtual_sdcard: '', webhooks: '' },
+      query: { print_stats: "", virtual_sdcard: "", webhooks: "" },
       timeoutMs: 8000,
     });
 
-    const stats  = data?.result?.status?.print_stats  || {};
-    const vsd    = data?.result?.status?.virtual_sdcard || {};
-    const hooks  = data?.result?.status?.webhooks || {};
+    const stats = data?.result?.status?.print_stats || {};
+    const vsd = data?.result?.status?.virtual_sdcard || {};
+    const hooks = data?.result?.status?.webhooks || {};
 
     // If Klipper itself is not ready (startup, shutdown, error), report offline.
-    if (hooks.state && hooks.state !== 'ready') {
-      return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    if (hooks.state && hooks.state !== "ready") {
+      return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
     }
 
-    const status = STATE_MAP[stats.state] || 'UNKNOWN';
+    const status = STATE_MAP[stats.state] || "UNKNOWN";
 
-    let progress    = null;
+    let progress = null;
     let timeRemaining = null;
     let currentFile = null;
 
-    if (status === 'PRINTING' || status === 'PAUSED') {
+    if (status === "PRINTING" || status === "PAUSED") {
       const pct = vsd.progress ?? null;
       if (pct != null) progress = Math.round(pct * 100);
 
@@ -58,7 +58,7 @@ async function getStatus(printer) {
       // inaccurate early estimates.
       const elapsed = stats.print_duration ?? 0;
       if (pct != null && pct > 0.02 && elapsed > 0) {
-        timeRemaining = Math.round(elapsed * (1 - pct) / pct);
+        timeRemaining = Math.round((elapsed * (1 - pct)) / pct);
       }
 
       if (stats.filename) {
@@ -68,7 +68,7 @@ async function getStatus(printer) {
 
     return { status, progress, timeRemaining, currentFile };
   } catch (_) {
-    return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
   }
 }
 
@@ -79,11 +79,11 @@ async function getStatus(printer) {
 // overwrites it silently, so no pre-delete step is needed.
 async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const form = new FormData();
-  form.append('file', fileBlob(gcodeFullPath), filename);
-  form.append('print', 'true'); // must be a form field, not a query param
+  form.append("file", fileBlob(gcodeFullPath), filename);
+  form.append("print", "true"); // must be a form field, not a query param
 
   await requestEmpty(`${base(printer)}/server/files/upload`, {
-    method: 'POST',
+    method: "POST",
     body: form,
     timeoutMs: 300000, // 5 minutes for large files
   });
@@ -94,7 +94,7 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 async function cancelJob(printer) {
   try {
     await requestEmpty(`${base(printer)}/printer/print/cancel`, {
-      method: 'POST',
+      method: "POST",
       timeoutMs: 10000,
     });
   } catch (err) {
@@ -107,7 +107,7 @@ async function cancelJob(printer) {
 async function checkIfPrinting(printer) {
   try {
     const { status } = await getStatus(printer);
-    return status === 'PRINTING' || status === 'PAUSED';
+    return status === "PRINTING" || status === "PAUSED";
   } catch (_) {
     return false;
   }

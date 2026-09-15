@@ -1,7 +1,7 @@
 class HttpError extends Error {
   constructor(response, body) {
-    super(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
-    this.name = 'HttpError';
+    super(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`);
+    this.name = "HttpError";
     this.status = response.status;
     this.body = body;
   }
@@ -22,11 +22,11 @@ async function readErrorBody(response) {
   try {
     return await response.text();
   } catch (_) {
-    return '';
+    return "";
   }
 }
 
-function requestOptions({ method = 'GET', headers, body, timeoutMs = 8000 }) {
+function requestOptions({ method = "GET", headers, body, timeoutMs = 8000 }) {
   const options = {
     method,
     headers,
@@ -35,7 +35,7 @@ function requestOptions({ method = 'GET', headers, body, timeoutMs = 8000 }) {
   };
 
   // Undici requires duplex when a Node readable stream is the request body.
-  if (body && typeof body.pipe === 'function') options.duplex = 'half';
+  if (body && typeof body.pipe === "function") options.duplex = "half";
   return options;
 }
 
@@ -60,8 +60,8 @@ async function requestEmpty(url, options = {}) {
   await response.arrayBuffer();
 }
 
-function fileBlob(filePath, type = 'application/octet-stream') {
-  return new Blob([require('fs').readFileSync(filePath)], { type });
+function fileBlob(filePath, type = "application/octet-stream") {
+  return new Blob([require("fs").readFileSync(filePath)], { type });
 }
 
 module.exports = { HttpError, requestJson, requestEmpty, requestRaw, fileBlob, withQuery };
