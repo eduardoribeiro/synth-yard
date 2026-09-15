@@ -8,9 +8,7 @@
 // printer.ip may include a port (e.g. "octopi.local:5000") — OctoPrint commonly
 // runs behind its bundled server on :5000 rather than :80, so no port is assumed.
 
-const axios = require('axios');
-const fs = require('fs');
-const FormData = require('form-data');
+const { requestJson, requestEmpty, fileBlob } = require('../http');
 
 function headers(printer) {
   return { 'X-Api-Key': printer.api_key };
@@ -29,13 +27,12 @@ function headers(printer) {
 // poller.js only reacts to it once since the DB status only changes on the transition.
 async function getStatus(printer) {
   try {
-    const [printerRes, jobRes] = await Promise.all([
-      axios.get(`http://${printer.ip}/api/printer`, { headers: headers(printer), timeout: 8000 }),
-      axios.get(`http://${printer.ip}/api/job`, { headers: headers(printer), timeout: 8000 }),
+    const [printerData, job] = await Promise.all([
+      requestJson(`http://${printer.ip}/api/printer`, { headers: headers(printer), timeoutMs: 8000 }),
+      requestJson(`http://${printer.ip}/api/job`, { headers: headers(printer), timeoutMs: 8000 }),
     ]);
 
-    const flags = printerRes.data?.state?.flags || {};
-    const job = jobRes.data || {};
+    const flags = printerData?.state?.flags || {};
     const completion = job.progress?.completion ?? null;
     const hasJobFile = !!job.job?.file?.name;
 
@@ -72,23 +69,19 @@ async function getStatus(printer) {
 // Throws UPLOAD_CONFLICT if OctoPrint refuses because the same file is mid-print.
 async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const form = new FormData();
-  form.append('file', fs.createReadStream(gcodeFullPath), { filename });
+  form.append('file', fileBlob(gcodeFullPath), filename);
   form.append('select', 'true');
   form.append('print', 'true');
 
   try {
-    await axios.post(
-      `http://${printer.ip}/api/files/local`,
-      form,
-      {
-        headers: { ...headers(printer), ...form.getHeaders() },
-        timeout: 300000, // 5 minutes — large files on slow networks
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
+    await requestEmpty(`http://${printer.ip}/api/files/local`, {
+      method: 'POST',
+      headers: headers(printer),
+      body: form,
+      timeoutMs: 300000, // 5 minutes, large files on slow networks
+    });
   } catch (err) {
-    if (err.response?.status === 409) {
+    if (err.status === 409) {
       throw Object.assign(
         new Error(`409 Conflict on upload — file likely mid-print on ${printer.name}`),
         { code: 'UPLOAD_CONFLICT' }
@@ -102,11 +95,12 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 
 async function cancelJob(printer) {
   try {
-    await axios.post(
-      `http://${printer.ip}/api/job`,
-      { command: 'cancel' },
-      { headers: headers(printer), timeout: 10000 }
-    );
+    await requestEmpty(`http://${printer.ip}/api/job`, {
+      method: 'POST',
+      headers: { ...headers(printer), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'cancel' }),
+      timeoutMs: 10000,
+    });
   } catch (err) {
     console.warn(`[octoprint] Cancel failed for ${printer.name}: ${err.message}`);
   }
@@ -119,11 +113,11 @@ async function cancelJob(printer) {
 // request timed out but the printer received the file and started printing anyway.
 async function checkIfPrinting(printer) {
   try {
-    const response = await axios.get(`http://${printer.ip}/api/printer`, {
+    const data = await requestJson(`http://${printer.ip}/api/printer`, {
       headers: headers(printer),
-      timeout: 8000,
+      timeoutMs: 8000,
     });
-    const flags = response.data?.state?.flags || {};
+    const flags = data?.state?.flags || {};
     return !!(flags.printing || flags.paused || flags.pausing || flags.cancelling);
   } catch (_) {
     return false;

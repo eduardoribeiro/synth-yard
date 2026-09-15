@@ -4,8 +4,8 @@
 // All functions are async and take a `printer` DB row as the first argument.
 // uploadAndPrint receives a resolved absolute path to the G-code file on disk.
 
-const axios = require('axios');
 const fs = require('fs');
+const { requestJson, requestEmpty } = require('../http');
 
 // ─── Status ─────────────────────────────────────────────────────────────────
 
@@ -14,12 +14,10 @@ const fs = require('fs');
 // progress and timeRemaining are null when not printing.
 async function getStatus(printer) {
   try {
-    const response = await axios.get(`http://${printer.ip}/api/v1/status`, {
+    const data = await requestJson(`http://${printer.ip}/api/v1/status`, {
       headers: { 'X-Api-Key': printer.api_key },
-      timeout: 8000,
+      timeoutMs: 8000,
     });
-
-    const data = response.data;
     const status = (data?.printer?.state || 'UNKNOWN').toUpperCase();
     const progress = (status === 'PRINTING' && data?.job) ? (data.job.progress ?? null) : null;
     const timeRemaining = (status === 'PRINTING' && data?.job) ? (data.job.time_remaining ?? null) : null;
@@ -38,23 +36,24 @@ async function getStatus(printer) {
 // Throws UPLOAD_CONFLICT if a transfer is already in progress on the printer.
 async function uploadAndPrint(printer, gcodeFullPath, filename) {
   // Delete any existing copy on the USB drive to avoid stale file conflicts.
-  // A 409 means a file transfer is already in progress — propagate as UPLOAD_CONFLICT
+  // A 409 means a file transfer is already in progress, propagate as UPLOAD_CONFLICT
   // so the caller can apply a longer retry delay.
   try {
-    await axios.delete(
-      `http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`,
-      { headers: { 'X-Api-Key': printer.api_key }, timeout: 10000 }
-    );
+    await requestEmpty(`http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+      headers: { 'X-Api-Key': printer.api_key },
+      timeoutMs: 10000,
+    });
     console.log(`[prusa] Deleted existing ${filename} from ${printer.name}`);
   } catch (err) {
-    if (err.response?.status === 409) {
+    if (err.status === 409) {
       throw Object.assign(
-        new Error(`409 Conflict on pre-delete — file transfer likely still in progress on ${printer.name}`),
+        new Error(`409 Conflict on pre-delete, file transfer likely still in progress on ${printer.name}`),
         { code: 'UPLOAD_CONFLICT' }
       );
     }
     // 404 = file wasn't there, that's fine. Any other error is a warning, not fatal.
-    if (!err.response || err.response.status !== 404) {
+    if (err.status !== 404) {
       console.warn(`[prusa] Pre-delete warning for ${printer.name}: ${err.message}`);
     }
   }
@@ -63,25 +62,21 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const stat = fs.statSync(gcodeFullPath);
 
   try {
-    await axios.put(
-      `http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`,
-      fileStream,
-      {
-        headers: {
-          'X-Api-Key': printer.api_key,
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': stat.size,
-          'Print-After-Upload': '1',
-        },
-        timeout: 300000, // 5 minutes — large files on slow networks
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
+    await requestEmpty(`http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
+      method: 'PUT',
+      body: fileStream,
+      headers: {
+        'X-Api-Key': printer.api_key,
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': stat.size,
+        'Print-After-Upload': '1',
+      },
+      timeoutMs: 300000, // 5 minutes, large files on slow networks
+    });
   } catch (err) {
-    if (err.response?.status === 409) {
+    if (err.status === 409) {
       throw Object.assign(
-        new Error(`409 Conflict on upload — file transfer likely still in progress on ${printer.name}`),
+        new Error(`409 Conflict on upload, file transfer likely still in progress on ${printer.name}`),
         { code: 'UPLOAD_CONFLICT' }
       );
     }
@@ -105,11 +100,11 @@ async function cancelJob(_printer) {
 // request timed out but the printer received the file and started printing anyway.
 async function checkIfPrinting(printer) {
   try {
-    const response = await axios.get(`http://${printer.ip}/api/v1/status`, {
+    const data = await requestJson(`http://${printer.ip}/api/v1/status`, {
       headers: { 'X-Api-Key': printer.api_key },
-      timeout: 8000,
+      timeoutMs: 8000,
     });
-    const state = (response.data?.printer?.state || '').toUpperCase();
+    const state = (data?.printer?.state || '').toUpperCase();
     return state === 'PRINTING' || state === 'PAUSED';
   } catch (_) {
     return false;

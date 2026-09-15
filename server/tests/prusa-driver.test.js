@@ -1,8 +1,31 @@
 // Unit tests for server/drivers/prusa.js
 // All network calls are mocked — no real printers needed.
 
-jest.mock('axios');
-const axios = require('axios');
+jest.mock('../http', () => ({
+  requestJson: jest.fn(),
+  requestEmpty: jest.fn(),
+  fileBlob: jest.fn(filePath => new Blob([require('fs').readFileSync(filePath)], { type: 'application/octet-stream' })),
+}));
+const http = require('../http');
+const httpMock = { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() };
+
+async function adapterRequest(url, { method = 'GET', headers, body, query, timeoutMs = 8000 } = {}) {
+  const config = { headers, timeout: timeoutMs };
+  if (query) config.params = query;
+  try {
+    if (method === 'GET') return await httpMock.get(url, config);
+    if (method === 'DELETE') return await httpMock.delete(url, config);
+    if (method === 'PUT') return await httpMock.put(url, body, config);
+    return await httpMock.post(url, body, config);
+  } catch (err) {
+    if (err.response && err.status === undefined) err.status = err.response.status;
+    throw err;
+  }
+}
+
+http.requestJson.mockImplementation(async (url, options) => (await adapterRequest(url, options)).data);
+http.requestEmpty.mockImplementation(async (url, options) => { await adapterRequest(url, options); });
+
 
 const path = require('path');
 const fs   = require('fs');
@@ -27,8 +50,8 @@ afterAll(() => {
 
 beforeEach(() => {
   // Default: DELETE and PUT succeed
-  axios.delete.mockResolvedValue({});
-  axios.put.mockImplementation((_url, data) => {
+  httpMock.delete.mockResolvedValue({});
+  httpMock.put.mockImplementation((_url, data) => {
     if (data && typeof data.destroy === 'function') {
       data.on('error', () => {});
       data.destroy();
@@ -52,7 +75,7 @@ function createTestFile(filename) {
 
 describe('getStatus', () => {
   test('returns IDLE status when PrusaLink reports IDLE', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('IDLE');
     expect(result.progress).toBeNull();
@@ -60,7 +83,7 @@ describe('getStatus', () => {
   });
 
   test('returns PRINTING with progress and timeRemaining when job data is present', async () => {
-    axios.get.mockResolvedValueOnce({
+    httpMock.get.mockResolvedValueOnce({
       data: {
         printer: { state: 'PRINTING' },
         job: { progress: 42.5, time_remaining: 1800 },
@@ -73,7 +96,7 @@ describe('getStatus', () => {
   });
 
   test('returns PRINTING with null progress when job field is absent', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'PRINTING' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'PRINTING' } } });
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('PRINTING');
     expect(result.progress).toBeNull();
@@ -81,19 +104,19 @@ describe('getStatus', () => {
   });
 
   test('returns FINISHED status', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'FINISHED' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'FINISHED' } } });
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('FINISHED');
   });
 
   test('normalises lowercase state to uppercase', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'printing' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'printing' } } });
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('PRINTING');
   });
 
   test('returns OFFLINE on network error', async () => {
-    axios.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
+    httpMock.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('OFFLINE');
     expect(result.progress).toBeNull();
@@ -103,15 +126,15 @@ describe('getStatus', () => {
   test('returns OFFLINE on HTTP error response', async () => {
     const err = new Error('Request failed with status code 503');
     err.response = { status: 503 };
-    axios.get.mockRejectedValueOnce(err);
+    httpMock.get.mockRejectedValueOnce(err);
     const result = await prusa.getStatus(fakePrinter);
     expect(result.status).toBe('OFFLINE');
   });
 
   test('uses correct PrusaLink URL and API key header', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
     await prusa.getStatus(fakePrinter);
-    expect(axios.get).toHaveBeenCalledWith(
+    expect(httpMock.get).toHaveBeenCalledWith(
       `http://${fakePrinter.ip}/api/v1/status`,
       expect.objectContaining({ headers: { 'X-Api-Key': fakePrinter.api_key } })
     );
@@ -127,11 +150,11 @@ describe('uploadAndPrint', () => {
 
     await prusa.uploadAndPrint(fakePrinter, fullPath, filename);
 
-    expect(axios.delete).toHaveBeenCalledWith(
+    expect(httpMock.delete).toHaveBeenCalledWith(
       `http://${fakePrinter.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`,
       expect.objectContaining({ headers: { 'X-Api-Key': fakePrinter.api_key } })
     );
-    expect(axios.put).toHaveBeenCalledWith(
+    expect(httpMock.put).toHaveBeenCalledWith(
       `http://${fakePrinter.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`,
       expect.anything(),
       expect.objectContaining({
@@ -144,7 +167,7 @@ describe('uploadAndPrint', () => {
     const filename = `conflict_del_${Date.now()}.bgcode`;
     const fullPath = createTestFile(filename);
 
-    axios.delete.mockRejectedValueOnce(
+    httpMock.delete.mockRejectedValueOnce(
       Object.assign(new Error('409'), { response: { status: 409 } })
     );
 
@@ -152,15 +175,15 @@ describe('uploadAndPrint', () => {
       .rejects.toMatchObject({ code: 'UPLOAD_CONFLICT' });
 
     // Should not attempt PUT when DELETE conflicted
-    expect(axios.put).not.toHaveBeenCalled();
+    expect(httpMock.put).not.toHaveBeenCalled();
   });
 
   test('throws UPLOAD_CONFLICT when PUT returns 409', async () => {
     const filename = `conflict_put_${Date.now()}.bgcode`;
     const fullPath = createTestFile(filename);
 
-    axios.delete.mockResolvedValueOnce({});
-    axios.put.mockImplementationOnce((_url, data) => {
+    httpMock.delete.mockResolvedValueOnce({});
+    httpMock.put.mockImplementationOnce((_url, data) => {
       if (data && typeof data.destroy === 'function') {
         data.on('error', () => {});
         data.destroy();
@@ -176,8 +199,8 @@ describe('uploadAndPrint', () => {
     const filename = `neterr_${Date.now()}.bgcode`;
     const fullPath = createTestFile(filename);
 
-    axios.delete.mockResolvedValueOnce({});
-    axios.put.mockImplementationOnce((_url, data) => {
+    httpMock.delete.mockResolvedValueOnce({});
+    httpMock.put.mockImplementationOnce((_url, data) => {
       if (data && typeof data.destroy === 'function') {
         data.on('error', () => {});
         data.destroy();
@@ -193,12 +216,12 @@ describe('uploadAndPrint', () => {
     const filename = `no_prior_${Date.now()}.bgcode`;
     const fullPath = createTestFile(filename);
 
-    axios.delete.mockRejectedValueOnce(
+    httpMock.delete.mockRejectedValueOnce(
       Object.assign(new Error('404'), { response: { status: 404 } })
     );
 
     await prusa.uploadAndPrint(fakePrinter, fullPath, filename);
-    expect(axios.put).toHaveBeenCalledTimes(1);
+    expect(httpMock.put).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -206,27 +229,27 @@ describe('uploadAndPrint', () => {
 
 describe('checkIfPrinting', () => {
   test('returns true when PrusaLink reports PRINTING', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'PRINTING' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'PRINTING' } } });
     expect(await prusa.checkIfPrinting(fakePrinter)).toBe(true);
   });
 
   test('returns true when PrusaLink reports PAUSED', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'PAUSED' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'PAUSED' } } });
     expect(await prusa.checkIfPrinting(fakePrinter)).toBe(true);
   });
 
   test('returns false when PrusaLink reports IDLE', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'IDLE' } } });
     expect(await prusa.checkIfPrinting(fakePrinter)).toBe(false);
   });
 
   test('returns false when printer is unreachable', async () => {
-    axios.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
+    httpMock.get.mockRejectedValueOnce(new Error('ETIMEDOUT'));
     expect(await prusa.checkIfPrinting(fakePrinter)).toBe(false);
   });
 
   test('is case-insensitive — lowercase state is matched', async () => {
-    axios.get.mockResolvedValueOnce({ data: { printer: { state: 'printing' } } });
+    httpMock.get.mockResolvedValueOnce({ data: { printer: { state: 'printing' } } });
     expect(await prusa.checkIfPrinting(fakePrinter)).toBe(true);
   });
 });

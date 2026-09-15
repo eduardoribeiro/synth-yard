@@ -1,9 +1,9 @@
 const express = require('express');
 const multer = require('multer');
 const Papa = require('papaparse');
-const axios = require('axios');
 const router = express.Router();
 const events = require('../events');
+const { requestJson } = require('../http');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -432,11 +432,11 @@ module.exports = (db) => {
         const raw = await require('../drivers').getDriver(printer.type).getRawStatus(printer);
         return res.json({ printer: { id: printer.id, name: printer.name, ip: printer.ip }, raw });
       }
-      const response = await axios.get(`http://${printer.ip}/api/v1/status`, {
+      const raw = await requestJson(`http://${printer.ip}/api/v1/status`, {
         headers: { 'X-Api-Key': printer.api_key },
-        timeout: 8000,
+        timeoutMs: 8000,
       });
-      res.json({ printer: { id: printer.id, name: printer.name, ip: printer.ip }, raw: response.data });
+      res.json({ printer: { id: printer.id, name: printer.name, ip: printer.ip }, raw });
     } catch (err) {
       res.json({ printer: { id: printer.id, name: printer.name, ip: printer.ip }, error: err.message });
     }

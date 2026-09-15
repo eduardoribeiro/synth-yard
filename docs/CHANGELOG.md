@@ -2,6 +2,50 @@
 
 ---
 
+## 2026-09-14: drain native Fetch responses and align migration documentation
+
+Code review found that successful empty HTTP responses were not consumed after native Fetch requests. In a long-lived server, leaving Undici response bodies unread can retain connection resources across repeated printer uploads and controls. The shared helper now drains those bodies before returning. The same review found stale Axios wording in the poller documentation and duplicated roadmap part numbers.
+
+### Changes
+- `server/http.js`, `server/tests/http.test.js`: drain successful empty response bodies with `arrayBuffer()` and assert that behavior in regression coverage.
+- `docs/poller.md`: replaced Axios timeout and dependency wording with the native Fetch implementation.
+- `TODO.md`: corrected duplicated roadmap part numbering.
+
+---
+
+## 2026-09-14: plan observed jobs for slicer-started prints
+
+Operators commonly start prints through a slicer or vendor application because print definitions and preparation belong there. Synth Yard currently tracks only jobs it dispatches itself, so a real printer job can be visible as PRINTING while it has no matching internal job row or historical record. The roadmap now defines observed jobs: record external printer activity and job history without claiming ownership of dispatch or automatically crediting parts.
+
+### Changes
+- `TODO.md`: added Track 8 for observed jobs, explicit job sources, idempotent poll-driven history, safe operator linking to internal parts, and strict no-auto-credit rules for prints Synth Yard did not dispatch.
+
+---
+
+## 2026-09-13: complete server native Fetch migration
+
+All server-side Axios use has been replaced with the built-in Fetch API through `server/http.js`. PrusaLink raw G-code streaming, Moonraker and OctoPrint multipart uploads, Creality multipart uploads, status polling, cancellation, and the printer raw-status route retain their existing protocol URLs, headers, timeouts, and error behavior. Moonraker's required empty object-query values, `UPLOAD_CONFLICT` handling, and Creality's application-level upload response check are covered by adapter-mocked tests. This transport-only change has not been validated on physical printer hardware.
+
+### Changes
+- `server/http.js`: added empty-response and raw-response helpers, Node readable-stream support, and native file `Blob` creation for multipart uploads.
+- `server/drivers/prusa.js`, `server/drivers/klipper.js`, `server/drivers/octoprint.js`, `server/drivers/creality.js`, `server/routes/printers.js`: replaced Axios and `form-data` calls with the shared native Fetch adapter while preserving protocol-specific request details.
+- `server/tests/http.test.js`, `server/tests/prusa-driver.test.js`, `server/tests/klipper-driver.test.js`, `server/tests/octoprint-driver.test.js`, `server/tests/creality-driver.test.js`, `server/tests/printers-filaments.test.js`: updated network mocks to target the shared adapter, retained all prior driver scenarios, and added transport regression coverage.
+- `package.json`, `pnpm-lock.yaml`: removed direct Axios and `form-data` runtime dependencies.
+- `docs/server.md`: documented the completed native Fetch transport.
+
+---
+
+## 2026-09-13: start native Fetch migration
+
+Synth Yard is beginning the removal of Axios and its companion multipart dependency in favor of the Fetch API built into the supported Node 26 runtime. The first change is a shared, fully tested HTTP boundary. It does not alter any driver or printer protocol traffic yet, so no hardware behavior changed in this step.
+
+### Changes
+- `server/http.js`: added native Fetch JSON requests with timeout signals, preserved query serialization, and typed-style HTTP status errors suitable for driver migration.
+- `server/tests/http.test.js`: added regression tests for Moonraker's required empty query values, headers, timeouts, empty responses, HTTP failures, and network failures.
+- `docs/server.md`, `TODO.md`: documented the migration boundary and staged plan.
+
+---
+
 ## 2026-09-13: establish Synth Yard fork identity and delivery standards
 
 This repository is now Synth Yard, an independently owned fork based on Joel Telling's Print Farm Manager. The fork keeps the upstream MIT attribution while setting a self-hosted-first product direction, with an optional managed cloud offering as future convenience rather than a self-hosting replacement. The roadmap now records the technical foundations required to grow safely: complete TypeScript migration, client and end-to-end testing, Conventional Commits with Semantic Versioning, and automated GitHub releases after merges to `main`.
