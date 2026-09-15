@@ -170,7 +170,7 @@ The cloud offering must be designed before it is built. The single biggest decis
 7. Track 3D (control commands) after 3A-3C prove the telemetry pipeline; Track 2D (consumption) last, gated on the G5 analysis.
 8. Track 6 cloud platform: architecture decision first, then auth, then agent prototype, then notifications and analytics. Camera streaming (3E) slots in per brand as protocol work allows; cloud edition does not depend on it.
 
-## Part 9: Track 7 - Platform engineering foundation
+## Part 10: Track 7 - Platform engineering foundation
 
 ### 7A. Full TypeScript migration
 
@@ -217,7 +217,7 @@ The cloud offering must be designed before it is built. The single biggest decis
 - [ ] Replace Axios mocks with `server/http.js` mocks in driver tests, then remove `axios` and `form-data` only after the full suite passes.
 - [ ] Update driver docs, server dependency docs, and hardware validation status as each connector migration lands.
 
-## Part 10: Cross-cutting checklist (applies to every change)
+## Part 11: Cross-cutting checklist (applies to every change)
 
 - [ ] `pnpm test` passes in full (24 suites, ~378 tests, no skips added)
 - [ ] Relevant docs/ component file updated in the same commit (web-app.md, api.md, driver-authoring.md, database.md, filaments.md, and the new spools/telemetry docs as they land)

@@ -84,9 +84,10 @@ describe('requestEmpty and requestRaw', () => {
   afterEach(() => { global.fetch = originalFetch; });
 
   test('accepts a successful non-JSON response without parsing it', async () => {
-    const response = { ok: true, status: 200, statusText: 'OK' };
+    const response = { ok: true, status: 200, statusText: 'OK', arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)) };
     global.fetch.mockResolvedValueOnce(response);
     await expect(requestEmpty('http://printer.local/upload', { method: 'PUT' })).resolves.toBeUndefined();
+    expect(response.arrayBuffer).toHaveBeenCalledTimes(1);
 
     global.fetch.mockResolvedValueOnce(response);
     await expect(requestRaw('http://printer.local/download')).resolves.toBe(response);
@@ -94,7 +95,7 @@ describe('requestEmpty and requestRaw', () => {
 
   test('enables duplex mode for a Node readable upload stream', async () => {
     const { Readable } = require('stream');
-    global.fetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
+    global.fetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)) });
     await requestEmpty('http://printer.local/upload', { method: 'PUT', body: Readable.from('gcode') });
     expect(global.fetch).toHaveBeenCalledWith('http://printer.local/upload', expect.objectContaining({ duplex: 'half' }));
   });

@@ -112,7 +112,7 @@ The gate on "only when there is a tracked active job" prevents an already-resolv
 
 ## Timeout
 
-Each individual printer poll has an 8-second axios timeout. If the printer doesn't respond within 8 seconds, it's marked `OFFLINE`. The 15-second interval between ticks means there's always a 7-second buffer between when one tick's slowest poll finishes and the next tick begins — assuming ≤50 printers all timing out simultaneously (worst case: 8s).
+Each individual printer poll has an 8-second native Fetch timeout through `AbortSignal.timeout()`. If the printer doesn't respond within 8 seconds, it's marked `OFFLINE`. The 15-second interval between ticks means there is always a 7-second buffer between when one tick's slowest poll finishes and the next tick begins, assuming 50 or fewer printers all time out simultaneously.
 
 ## Usage
 
@@ -127,5 +127,5 @@ poller.stop();    // clears the interval (for clean shutdown / tests)
 
 | Package | Purpose |
 |---|---|
-| `axios` | HTTP client for PrusaLink API calls |
+| Fetch API | Node.js built-in HTTP transport used by the driver layer |
 | `events` | Node.js built-in `EventEmitter` base class |

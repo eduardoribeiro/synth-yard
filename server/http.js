@@ -54,7 +54,10 @@ async function requestJson(url, options = {}) {
 }
 
 async function requestEmpty(url, options = {}) {
-  await requestRaw(url, options);
+  const response = await requestRaw(url, options);
+  // Drain successful response bodies so Undici can release the connection for
+  // later printer requests in this long-lived server process.
+  await response.arrayBuffer();
 }
 
 function fileBlob(filePath, type = 'application/octet-stream') {

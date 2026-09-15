@@ -2,6 +2,17 @@
 
 ---
 
+## 2026-09-14: drain native Fetch responses and align migration documentation
+
+Code review found that successful empty HTTP responses were not consumed after native Fetch requests. In a long-lived server, leaving Undici response bodies unread can retain connection resources across repeated printer uploads and controls. The shared helper now drains those bodies before returning. The same review found stale Axios wording in the poller documentation and duplicated roadmap part numbers.
+
+### Changes
+- `server/http.js`, `server/tests/http.test.js`: drain successful empty response bodies with `arrayBuffer()` and assert that behavior in regression coverage.
+- `docs/poller.md`: replaced Axios timeout and dependency wording with the native Fetch implementation.
+- `TODO.md`: corrected duplicated roadmap part numbering.
+
+---
+
 ## 2026-09-14: plan observed jobs for slicer-started prints
 
 Operators commonly start prints through a slicer or vendor application because print definitions and preparation belong there. Synth Yard currently tracks only jobs it dispatches itself, so a real printer job can be visible as PRINTING while it has no matching internal job row or historical record. The roadmap now defines observed jobs: record external printer activity and job history without claiming ownership of dispatch or automatically crediting parts.
