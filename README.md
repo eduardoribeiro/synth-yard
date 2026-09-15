@@ -49,14 +49,13 @@ K2/K2 Plus and CR-M4 are not supported by this connector.
 |---|---|
 | [Node.js](https://nodejs.org) + [Express](https://expressjs.com) | HTTP API server |
 | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Embedded SQLite database — synchronous, zero configuration |
-| [axios](https://axios-http.com) | HTTP communication with Prusa, Klipper, and OctoPrint printers |
+| Native [Fetch API](https://developer.mozilla.org/docs/Web/API/Fetch_API) | HTTP communication with supported printer APIs |
 | [mqtt](https://github.com/mqttjs/MQTT.js) | MQTT over TLS for Bambu printer communication |
 | [basic-ftp](https://github.com/patrickjuchli/basic-ftp) | FTPS file transfer to Bambu printers |
 | [sdcp](https://github.com/blakejrobinson/sdcp) | WebSocket protocol driver for Elegoo SDCP printers |
 | [multer](https://github.com/expressjs/multer) | G-code file upload handling |
 | [papaparse](https://www.papaparse.com) | CSV fleet import |
-| [form-data](https://github.com/form-data/form-data) | Multipart upload for Klipper/Moonraker |
-| [PM2](https://pm2.keymetrics.io) | Process manager — auto-start on boot, crash recovery |
+| [PM2](https://pm2.keymetrics.io) | Process manager, auto-start on boot and crash recovery |
 
 ### Frontend
 | Package | Role |
@@ -64,6 +63,8 @@ K2/K2 Plus and CR-M4 are not supported by this connector.
 | [React 18](https://react.dev) | UI framework |
 | [React Router v6](https://reactrouter.com) | Client-side routing |
 | [Vite](https://vitejs.dev) | Build tool and dev server |
+| [TypeScript](https://www.typescriptlang.org) | Gradual static typing for client and server migrations |
+| [OXC](https://oxc.rs) | Fast linting and code formatting |
 
 ### Data
 | Technology | Role |

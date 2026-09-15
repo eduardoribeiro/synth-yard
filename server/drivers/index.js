@@ -7,13 +7,13 @@
 // when a printer of that brand is actually present.
 
 const LOADERS = {
-  'prusa':            () => require('./prusa'),
-  'elegoo-centauri':  () => require('./elegoo-centauri'),
-  'elegoo-centauri2': () => require('./elegoo-centauri2'),
-  'bambu':            () => require('./bambu'),
-  'klipper':          () => require('./klipper'),
-  'creality':         () => require('./creality'),
-  'octoprint':        () => require('./octoprint'),
+  prusa: () => require("./prusa"),
+  "elegoo-centauri": () => require("./elegoo-centauri"),
+  "elegoo-centauri2": () => require("./elegoo-centauri2"),
+  bambu: () => require("./bambu"),
+  klipper: () => require("./klipper"),
+  creality: () => require("./creality"),
+  octoprint: () => require("./octoprint"),
 };
 
 function getDriver(type) {

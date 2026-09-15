@@ -4,8 +4,8 @@
 // All functions are async and take a `printer` DB row as the first argument.
 // uploadAndPrint receives a resolved absolute path to the G-code file on disk.
 
-const fs = require('fs');
-const { requestJson, requestEmpty } = require('../http');
+const fs = require("fs");
+const { requestJson, requestEmpty } = require("../http");
 
 // ─── Status ─────────────────────────────────────────────────────────────────
 
@@ -15,16 +15,17 @@ const { requestJson, requestEmpty } = require('../http');
 async function getStatus(printer) {
   try {
     const data = await requestJson(`http://${printer.ip}/api/v1/status`, {
-      headers: { 'X-Api-Key': printer.api_key },
+      headers: { "X-Api-Key": printer.api_key },
       timeoutMs: 8000,
     });
-    const status = (data?.printer?.state || 'UNKNOWN').toUpperCase();
-    const progress = (status === 'PRINTING' && data?.job) ? (data.job.progress ?? null) : null;
-    const timeRemaining = (status === 'PRINTING' && data?.job) ? (data.job.time_remaining ?? null) : null;
+    const status = (data?.printer?.state || "UNKNOWN").toUpperCase();
+    const progress = status === "PRINTING" && data?.job ? (data.job.progress ?? null) : null;
+    const timeRemaining =
+      status === "PRINTING" && data?.job ? (data.job.time_remaining ?? null) : null;
 
     return { status, progress, timeRemaining, currentFile: null };
   } catch (_) {
-    return { status: 'OFFLINE', progress: null, timeRemaining: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null };
   }
 }
 
@@ -40,16 +41,18 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
   // so the caller can apply a longer retry delay.
   try {
     await requestEmpty(`http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
-      method: 'DELETE',
-      headers: { 'X-Api-Key': printer.api_key },
+      method: "DELETE",
+      headers: { "X-Api-Key": printer.api_key },
       timeoutMs: 10000,
     });
     console.log(`[prusa] Deleted existing ${filename} from ${printer.name}`);
   } catch (err) {
     if (err.status === 409) {
       throw Object.assign(
-        new Error(`409 Conflict on pre-delete, file transfer likely still in progress on ${printer.name}`),
-        { code: 'UPLOAD_CONFLICT' }
+        new Error(
+          `409 Conflict on pre-delete, file transfer likely still in progress on ${printer.name}`,
+        ),
+        { code: "UPLOAD_CONFLICT" },
       );
     }
     // 404 = file wasn't there, that's fine. Any other error is a warning, not fatal.
@@ -63,21 +66,23 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 
   try {
     await requestEmpty(`http://${printer.ip}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
-      method: 'PUT',
+      method: "PUT",
       body: fileStream,
       headers: {
-        'X-Api-Key': printer.api_key,
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': stat.size,
-        'Print-After-Upload': '1',
+        "X-Api-Key": printer.api_key,
+        "Content-Type": "application/octet-stream",
+        "Content-Length": stat.size,
+        "Print-After-Upload": "1",
       },
       timeoutMs: 300000, // 5 minutes, large files on slow networks
     });
   } catch (err) {
     if (err.status === 409) {
       throw Object.assign(
-        new Error(`409 Conflict on upload, file transfer likely still in progress on ${printer.name}`),
-        { code: 'UPLOAD_CONFLICT' }
+        new Error(
+          `409 Conflict on upload, file transfer likely still in progress on ${printer.name}`,
+        ),
+        { code: "UPLOAD_CONFLICT" },
       );
     }
     throw err;
@@ -101,11 +106,11 @@ async function cancelJob(_printer) {
 async function checkIfPrinting(printer) {
   try {
     const data = await requestJson(`http://${printer.ip}/api/v1/status`, {
-      headers: { 'X-Api-Key': printer.api_key },
+      headers: { "X-Api-Key": printer.api_key },
       timeoutMs: 8000,
     });
-    const state = (data?.printer?.state || '').toUpperCase();
-    return state === 'PRINTING' || state === 'PAUSED';
+    const state = (data?.printer?.state || "").toUpperCase();
+    return state === "PRINTING" || state === "PAUSED";
   } catch (_) {
     return false;
   }

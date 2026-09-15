@@ -1,34 +1,37 @@
 {
   "name": "synth-yard",
   "version": "1.0.0",
+  "private": true,
   "description": "Open-source, self-hosted 3D printer fleet management",
-  "author": "Eduardo Ribeiro",
+  "keywords": [
+    "3d-printing",
+    "bambu",
+    "elegoo",
+    "klipper",
+    "print-farm",
+    "printer-fleet",
+    "prusa",
+    "self-hosted",
+    "synth-yard"
+  ],
   "license": "MIT",
+  "author": "Eduardo Ribeiro",
   "repository": {
     "type": "git",
     "url": "https://github.com/eduardoribeiro/synth-yard.git"
   },
-  "engines": {
-    "node": ">=26.0.0 <27"
-  },
-  "keywords": [
-    "3d-printing",
-    "print-farm",
-    "printer-fleet",
-    "synth-yard",
-    "prusa",
-    "bambu",
-    "klipper",
-    "elegoo",
-    "self-hosted"
-  ],
   "scripts": {
     "dev": "concurrently \"pnpm run server\" \"pnpm run client\"",
     "server": "node server/index.js",
     "client": "pnpm --dir client dev",
     "build": "pnpm --dir client build",
+    "format": "oxfmt --check server client/src",
+    "format:write": "oxfmt server client/src",
+    "lint": "oxlint --jest-plugin --node-plugin --react-plugin server client/src",
+    "lint:fix": "oxlint --fix --jest-plugin --node-plugin --react-plugin server client/src",
     "start": "node server/index.js",
-    "test": "jest --testPathPatterns=server/tests"
+    "test": "jest --testPathPatterns=server/tests",
+    "typecheck": "tsc -p tsconfig.json && pnpm --dir client typecheck"
   },
   "dependencies": {
     "basic-ftp": "^5.2.1",
@@ -41,9 +44,20 @@
     "sdcp": "^0.5.4"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^4.17.25",
+    "@types/jest": "^30.0.0",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.20.2",
+    "@types/supertest": "^7.2.1",
     "jest": "^30.3.0",
-    "supertest": "^7.2.2"
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "supertest": "^7.2.2",
+    "typescript": "^7.0.2"
   },
-  "private": true,
+  "engines": {
+    "node": ">=26.0.0 <27"
+  },
   "packageManager": "pnpm@12.3.4"
 }

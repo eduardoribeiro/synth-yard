@@ -8,10 +8,10 @@
 // printer.ip may include a port (e.g. "octopi.local:5000") — OctoPrint commonly
 // runs behind its bundled server on :5000 rather than :80, so no port is assumed.
 
-const { requestJson, requestEmpty, fileBlob } = require('../http');
+const { requestJson, requestEmpty, fileBlob } = require("../http");
 
 function headers(printer) {
-  return { 'X-Api-Key': printer.api_key };
+  return { "X-Api-Key": printer.api_key };
 }
 
 // ─── Status ─────────────────────────────────────────────────────────────────
@@ -28,7 +28,10 @@ function headers(printer) {
 async function getStatus(printer) {
   try {
     const [printerData, job] = await Promise.all([
-      requestJson(`http://${printer.ip}/api/printer`, { headers: headers(printer), timeoutMs: 8000 }),
+      requestJson(`http://${printer.ip}/api/printer`, {
+        headers: headers(printer),
+        timeoutMs: 8000,
+      }),
       requestJson(`http://${printer.ip}/api/job`, { headers: headers(printer), timeoutMs: 8000 }),
     ]);
 
@@ -38,26 +41,26 @@ async function getStatus(printer) {
 
     let status;
     if (flags.error || flags.closedOrError) {
-      status = 'ERROR';
+      status = "ERROR";
     } else if (flags.printing || flags.pausing || flags.cancelling) {
-      status = 'PRINTING';
+      status = "PRINTING";
     } else if (flags.paused) {
-      status = 'PAUSED';
+      status = "PAUSED";
     } else if (flags.operational && hasJobFile && completion === 100) {
-      status = 'FINISHED';
+      status = "FINISHED";
     } else if (flags.operational) {
-      status = 'IDLE';
+      status = "IDLE";
     } else {
-      status = 'UNKNOWN';
+      status = "UNKNOWN";
     }
 
-    const progress = (status === 'PRINTING') ? completion : null;
-    const timeRemaining = (status === 'PRINTING') ? (job.progress?.printTimeLeft ?? null) : null;
-    const currentFile = (status === 'PRINTING' && hasJobFile) ? job.job.file.name : null;
+    const progress = status === "PRINTING" ? completion : null;
+    const timeRemaining = status === "PRINTING" ? (job.progress?.printTimeLeft ?? null) : null;
+    const currentFile = status === "PRINTING" && hasJobFile ? job.job.file.name : null;
 
     return { status, progress, timeRemaining, currentFile };
   } catch (_) {
-    return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
   }
 }
 
@@ -69,13 +72,13 @@ async function getStatus(printer) {
 // Throws UPLOAD_CONFLICT if OctoPrint refuses because the same file is mid-print.
 async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const form = new FormData();
-  form.append('file', fileBlob(gcodeFullPath), filename);
-  form.append('select', 'true');
-  form.append('print', 'true');
+  form.append("file", fileBlob(gcodeFullPath), filename);
+  form.append("select", "true");
+  form.append("print", "true");
 
   try {
     await requestEmpty(`http://${printer.ip}/api/files/local`, {
-      method: 'POST',
+      method: "POST",
       headers: headers(printer),
       body: form,
       timeoutMs: 300000, // 5 minutes, large files on slow networks
@@ -84,7 +87,7 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
     if (err.status === 409) {
       throw Object.assign(
         new Error(`409 Conflict on upload — file likely mid-print on ${printer.name}`),
-        { code: 'UPLOAD_CONFLICT' }
+        { code: "UPLOAD_CONFLICT" },
       );
     }
     throw err;
@@ -96,9 +99,9 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 async function cancelJob(printer) {
   try {
     await requestEmpty(`http://${printer.ip}/api/job`, {
-      method: 'POST',
-      headers: { ...headers(printer), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'cancel' }),
+      method: "POST",
+      headers: { ...headers(printer), "Content-Type": "application/json" },
+      body: JSON.stringify({ command: "cancel" }),
       timeoutMs: 10000,
     });
   } catch (err) {

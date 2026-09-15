@@ -1,51 +1,53 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import Fleet from './pages/Fleet';
-import Printers from './pages/Printers';
-import PrinterDetail from './pages/PrinterDetail';
-import Projects from './pages/Projects';
-import Jobs from './pages/Jobs';
-import Settings from './pages/Settings';
-import Decommissioned from './pages/Decommissioned';
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
+import Fleet from "./pages/Fleet";
+import Printers from "./pages/Printers";
+import PrinterDetail from "./pages/PrinterDetail";
+import Projects from "./pages/Projects";
+import Jobs from "./pages/Jobs";
+import Settings from "./pages/Settings";
+import Decommissioned from "./pages/Decommissioned";
 
 const NAV_ITEMS = [
-  { to: '/',               label: 'Dashboard' },
-  { to: '/fleet',          label: 'Fleet' },
-  { to: '/printers',       label: 'Printers',      end: true },
-  { to: '/projects',       label: 'Projects' },
-  { to: '/jobs',           label: 'Jobs' },
-  { to: '/decommissioned', label: 'Decommissioned' },
-  { to: '/settings',       label: 'Settings' },
+  { to: "/", label: "Dashboard" },
+  { to: "/fleet", label: "Fleet" },
+  { to: "/printers", label: "Printers", end: true },
+  { to: "/projects", label: "Projects" },
+  { to: "/jobs", label: "Jobs" },
+  { to: "/decommissioned", label: "Decommissioned" },
+  { to: "/settings", label: "Settings" },
 ];
 
 const navLinkStyle = ({ isActive }) => ({
-  display: 'block',
-  padding: '8px 14px',
+  display: "block",
+  padding: "8px 14px",
   borderRadius: 6,
-  color: isActive ? '#fff' : '#94a3b8',
-  background: isActive ? '#1e40af' : 'transparent',
-  textDecoration: 'none',
+  color: isActive ? "#fff" : "#94a3b8",
+  background: isActive ? "#1e40af" : "transparent",
+  textDecoration: "none",
   fontWeight: isActive ? 700 : 400,
   fontSize: 14,
-  transition: 'background 0.15s',
-  whiteSpace: 'nowrap',
+  transition: "background 0.15s",
+  whiteSpace: "nowrap",
 });
 
 export default function App() {
   // Operator-configurable farm name (Settings → Farm Name)
-  const [farmName, setFarmName] = useState('Synth Yard');
+  const [farmName, setFarmName] = useState("Synth Yard");
   useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(data => { if (data.farm_name) setFarmName(data.farm_name); })
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.farm_name) setFarmName(data.farm_name);
+      })
       .catch(() => {});
 
     // Settings page dispatches this on save so the sidebar/topbar update live,
     // without needing a full page refresh.
     const onFarmNameChanged = (e) => setFarmName(e.detail);
-    window.addEventListener('farmNameChanged', onFarmNameChanged);
-    return () => window.removeEventListener('farmNameChanged', onFarmNameChanged);
+    window.addEventListener("farmNameChanged", onFarmNameChanged);
+    return () => window.removeEventListener("farmNameChanged", onFarmNameChanged);
   }, []);
 
   return (
@@ -67,12 +69,21 @@ export default function App() {
       <div id="layout">
         {/* Sidebar (desktop) */}
         <nav id="sidebar">
-          <div style={{ padding: '0 6px 16px', borderBottom: '1px solid #1e2433', marginBottom: 8 }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#e2e8f0', lineHeight: 1.3 }}>{farmName}</div>
-            <div style={{ fontWeight: 400, fontSize: 11, color: '#475569' }}>Synth Yard</div>
+          <div
+            style={{ padding: "0 6px 16px", borderBottom: "1px solid #1e2433", marginBottom: 8 }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 15, color: "#e2e8f0", lineHeight: 1.3 }}>
+              {farmName}
+            </div>
+            <div style={{ fontWeight: 400, fontSize: 11, color: "#475569" }}>Synth Yard</div>
           </div>
           {NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/' || !!item.end} style={navLinkStyle}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/" || !!item.end}
+              style={navLinkStyle}
+            >
               {item.label}
             </NavLink>
           ))}
@@ -80,18 +91,20 @@ export default function App() {
 
         {/* Top nav bar (mobile) */}
         <nav id="topbar">
-          <span style={{ fontWeight: 800, fontSize: 14, color: '#e2e8f0', marginRight: 8 }}>{farmName}</span>
+          <span style={{ fontWeight: 800, fontSize: 14, color: "#e2e8f0", marginRight: 8 }}>
+            {farmName}
+          </span>
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/' || !!item.end}
+              end={item.to === "/" || !!item.end}
               style={({ isActive }) => ({
-                padding: '5px 10px',
+                padding: "5px 10px",
                 borderRadius: 6,
-                color: isActive ? '#fff' : '#94a3b8',
-                background: isActive ? '#1e40af' : '#1e2433',
-                textDecoration: 'none',
+                color: isActive ? "#fff" : "#94a3b8",
+                background: isActive ? "#1e40af" : "#1e2433",
+                textDecoration: "none",
                 fontSize: 13,
                 fontWeight: isActive ? 700 : 400,
               })}
@@ -104,14 +117,14 @@ export default function App() {
         {/* Main content */}
         <main id="main">
           <Routes>
-            <Route path="/"                element={<Dashboard />} />
-            <Route path="/fleet"           element={<Fleet />} />
-            <Route path="/printers"        element={<Printers />} />
-            <Route path="/printers/:id"    element={<PrinterDetail />} />
-            <Route path="/projects"        element={<Projects />} />
-            <Route path="/jobs"            element={<Jobs />} />
-            <Route path="/decommissioned"  element={<Decommissioned />} />
-            <Route path="/settings"        element={<Settings />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/fleet" element={<Fleet />} />
+            <Route path="/printers" element={<Printers />} />
+            <Route path="/printers/:id" element={<PrinterDetail />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/decommissioned" element={<Decommissioned />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>

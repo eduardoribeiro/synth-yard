@@ -7,26 +7,26 @@
 //   - Upload failure recovery via driver.checkIfPrinting
 //   - Holding the printer after all retries are exhausted
 
-const path = require('path');
-const fs   = require('fs');
-const Database = require('better-sqlite3');
+const path = require("path");
+const fs = require("fs");
+const Database = require("better-sqlite3");
 
 // Mock drivers module before requiring the scheduler
 const mockDriver = {
   uploadAndPrint: jest.fn(),
   checkIfPrinting: jest.fn(),
 };
-jest.mock('../drivers', () => ({
+jest.mock("../drivers", () => ({
   getDriver: jest.fn(() => mockDriver),
 }));
 
 // Mock notifications so we can assert on it without side effects
-jest.mock('../notifications', () => ({ add: jest.fn() }));
-const notifications = require('../notifications');
+jest.mock("../notifications", () => ({ add: jest.fn() }));
+const notifications = require("../notifications");
 
-const JobScheduler = require('../scheduler');
+const JobScheduler = require("../scheduler");
 
-const GCODE_DIR = path.join(__dirname, '..', 'gcode');
+const GCODE_DIR = path.join(__dirname, "..", "gcode");
 
 // Files created during tests — cleaned up after all tests complete
 const filesToClean = [];
@@ -37,7 +37,9 @@ beforeAll(() => {
 
 afterAll(() => {
   for (const p of filesToClean) {
-    try { fs.unlinkSync(p); } catch (_) {}
+    try {
+      fs.unlinkSync(p);
+    } catch (_) {}
   }
 });
 
@@ -54,7 +56,7 @@ afterEach(() => {
 // Build an in-memory DB pre-populated with one printer, project, part, and gcode.
 // gcodeFilepath is the value stored in the gcodes table (may be bare or absolute).
 function makeDb(gcodeFilepath) {
-  const db = new Database(':memory:');
+  const db = new Database(":memory:");
   db.exec(`
     CREATE TABLE printers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,20 +110,30 @@ function makeDb(gcodeFilepath) {
   return db;
 }
 
-const fakePrinter = { id: 1, name: 'P1', ip: '192.168.1.1', api_key: 'key', model: 'mk4s', type: 'prusa', status: 'IDLE', is_held: 0, is_active: 1 };
+const fakePrinter = {
+  id: 1,
+  name: "P1",
+  ip: "192.168.1.1",
+  api_key: "key",
+  model: "mk4s",
+  type: "prusa",
+  status: "IDLE",
+  is_held: 0,
+  is_active: 1,
+};
 
 function createTestFile(filename) {
   const filePath = path.join(GCODE_DIR, filename);
-  fs.writeFileSync(filePath, 'fake gcode');
+  fs.writeFileSync(filePath, "fake gcode");
   filesToClean.push(filePath);
   return filePath;
 }
 
 // ─── GCODE_MISSING ────────────────────────────────────────────────────────────
 
-describe('_dispatchToPrinter — GCODE_MISSING', () => {
-  test('returns null without leaving any job record when file does not exist on disk', async () => {
-    const db = makeDb('nonexistent.bgcode');
+describe("_dispatchToPrinter — GCODE_MISSING", () => {
+  test("returns null without leaving any job record when file does not exist on disk", async () => {
+    const db = makeDb("nonexistent.bgcode");
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     const jobId = await scheduler._dispatchToPrinter(fakePrinter);
@@ -131,12 +143,12 @@ describe('_dispatchToPrinter — GCODE_MISSING', () => {
     const job = db.prepare("SELECT status FROM jobs ORDER BY id DESC LIMIT 1").get();
     expect(job).toBeUndefined();
     // Printer must NOT be held — it is free to pick up work for other parts
-    const printer = db.prepare('SELECT is_held FROM printers WHERE id = 1').get();
+    const printer = db.prepare("SELECT is_held FROM printers WHERE id = 1").get();
     expect(printer.is_held).toBe(0);
   });
 
-  test('sends a notification naming the part and project when file is missing', async () => {
-    const db = makeDb('also_missing.bgcode');
+  test("sends a notification naming the part and project when file is missing", async () => {
+    const db = makeDb("also_missing.bgcode");
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     await scheduler._dispatchToPrinter(fakePrinter);
@@ -150,8 +162,8 @@ describe('_dispatchToPrinter — GCODE_MISSING', () => {
     // Printer is not held — notification intentionally omits it
   });
 
-  test('does not call driver.uploadAndPrint when file is missing', async () => {
-    const db = makeDb('ghost.bgcode');
+  test("does not call driver.uploadAndPrint when file is missing", async () => {
+    const db = makeDb("ghost.bgcode");
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     await scheduler._dispatchToPrinter(fakePrinter);
@@ -159,8 +171,8 @@ describe('_dispatchToPrinter — GCODE_MISSING', () => {
     expect(mockDriver.uploadAndPrint).not.toHaveBeenCalled();
   });
 
-  test('sends exactly one notification (not one per retry) when file is missing', async () => {
-    const db = makeDb('single_notif.bgcode');
+  test("sends exactly one notification (not one per retry) when file is missing", async () => {
+    const db = makeDb("single_notif.bgcode");
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     await scheduler._dispatchToPrinter(fakePrinter);
@@ -172,8 +184,8 @@ describe('_dispatchToPrinter — GCODE_MISSING', () => {
 
 // ─── Path resolution ──────────────────────────────────────────────────────────
 
-describe('_dispatchToPrinter — path resolution', () => {
-  test('calls driver.uploadAndPrint with an absolute path when filepath is a bare filename', async () => {
+describe("_dispatchToPrinter — path resolution", () => {
+  test("calls driver.uploadAndPrint with an absolute path when filepath is a bare filename", async () => {
     const filename = `bare_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename); // bare filename stored in DB
@@ -187,7 +199,7 @@ describe('_dispatchToPrinter — path resolution', () => {
     expect(resolvedPath).toBe(path.join(GCODE_DIR, filename));
   });
 
-  test('strips old absolute Unix path to basename before resolving', async () => {
+  test("strips old absolute Unix path to basename before resolving", async () => {
     const filename = `abs_unix_${Date.now()}.bgcode`;
     createTestFile(filename);
     const oldPath = `/Users/olduser/dev/print-farm-manager/server/gcode/${filename}`;
@@ -201,7 +213,7 @@ describe('_dispatchToPrinter — path resolution', () => {
     expect(resolvedPath).toBe(path.join(GCODE_DIR, filename));
   });
 
-  test('strips old absolute Windows path to basename before resolving', async () => {
+  test("strips old absolute Windows path to basename before resolving", async () => {
     const filename = `abs_win_${Date.now()}.bgcode`;
     createTestFile(filename);
     const oldPath = `C:\\Users\\operator\\print-farm-manager\\server\\gcode\\${filename}`;
@@ -215,8 +227,8 @@ describe('_dispatchToPrinter — path resolution', () => {
     expect(resolvedPath).toBe(path.join(GCODE_DIR, filename));
   });
 
-  test('GCODE_MISSING when basename of absolute path is not in GCODE_DIR', async () => {
-    const db = makeDb('/old/machine/path/ghost_abs.bgcode');
+  test("GCODE_MISSING when basename of absolute path is not in GCODE_DIR", async () => {
+    const db = makeDb("/old/machine/path/ghost_abs.bgcode");
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     const jobId = await scheduler._dispatchToPrinter(fakePrinter);
@@ -230,50 +242,65 @@ describe('_dispatchToPrinter — path resolution', () => {
 // ─── Upload failure recovery ───────────────────────────────────────────────────
 // These tests use fake timers to avoid waiting for the real 5s retry delays.
 
-describe('_dispatchToPrinter — upload failure recovery', () => {
-  beforeEach(() => { jest.useFakeTimers(); });
-  afterEach(() => { jest.useRealTimers(); });
-
-  test.each([true, false])('does not retry an uncertain start; filename recovery=%s', async recovered => {
-    const filename = `creality_${Date.now()}.gcode`;
-    createTestFile(filename);
-    const db = makeDb(filename);
-    db.prepare('UPDATE gcodes SET filename = ?').run(filename);
-    const scheduler = new JobScheduler(db, { on: () => {} });
-    mockDriver.uploadAndPrint.mockRejectedValue(Object.assign(new Error('Unconfirmed start'), { retryable: false }));
-    mockDriver.checkIfPrinting.mockResolvedValue(recovered);
-    const promise = scheduler._dispatchToPrinter(fakePrinter);
-    await jest.runAllTimersAsync();
-    await promise;
-    expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(1);
-    expect(mockDriver.checkIfPrinting).toHaveBeenCalledWith(fakePrinter, filename);
-    expect(db.prepare('SELECT status FROM jobs').get().status).toBe(recovered ? 'printing' : 'uploading');
-    expect(db.prepare('SELECT is_held FROM printers WHERE id = 1').get().is_held).toBe(recovered ? 0 : 1);
+describe("_dispatchToPrinter — upload failure recovery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  test('a busy preflight failure cannot recover an unrelated print', async () => {
+  test.each([true, false])(
+    "does not retry an uncertain start; filename recovery=%s",
+    async (recovered) => {
+      const filename = `creality_${Date.now()}.gcode`;
+      createTestFile(filename);
+      const db = makeDb(filename);
+      db.prepare("UPDATE gcodes SET filename = ?").run(filename);
+      const scheduler = new JobScheduler(db, { on: () => {} });
+      mockDriver.uploadAndPrint.mockRejectedValue(
+        Object.assign(new Error("Unconfirmed start"), { retryable: false }),
+      );
+      mockDriver.checkIfPrinting.mockResolvedValue(recovered);
+      const promise = scheduler._dispatchToPrinter(fakePrinter);
+      await jest.runAllTimersAsync();
+      await promise;
+      expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(1);
+      expect(mockDriver.checkIfPrinting).toHaveBeenCalledWith(fakePrinter, filename);
+      expect(db.prepare("SELECT status FROM jobs").get().status).toBe(
+        recovered ? "printing" : "uploading",
+      );
+      expect(db.prepare("SELECT is_held FROM printers WHERE id = 1").get().is_held).toBe(
+        recovered ? 0 : 1,
+      );
+    },
+  );
+
+  test("a busy preflight failure cannot recover an unrelated print", async () => {
     const filename = `busy_${Date.now()}.gcode`;
     createTestFile(filename);
     const db = makeDb(filename);
     const scheduler = new JobScheduler(db, { on: () => {} });
-    mockDriver.uploadAndPrint.mockRejectedValue(Object.assign(new Error('Printer busy'), { retryable: false, recoverable: false }));
+    mockDriver.uploadAndPrint.mockRejectedValue(
+      Object.assign(new Error("Printer busy"), { retryable: false, recoverable: false }),
+    );
     mockDriver.checkIfPrinting.mockResolvedValue(true);
     const promise = scheduler._dispatchToPrinter(fakePrinter);
     await jest.runAllTimersAsync();
     expect(await promise).toBeNull();
     expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(1);
     expect(mockDriver.checkIfPrinting).not.toHaveBeenCalled();
-    expect(db.prepare('SELECT is_held FROM printers WHERE id = 1').get().is_held).toBe(1);
+    expect(db.prepare("SELECT is_held FROM printers WHERE id = 1").get().is_held).toBe(1);
   });
 
-  test('recovers job when uploadAndPrint fails but checkIfPrinting returns true', async () => {
+  test("recovers job when uploadAndPrint fails but checkIfPrinting returns true", async () => {
     const filename = `recover_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
     const scheduler = new JobScheduler(db, { on: () => {} });
 
     // All upload attempts fail, but printer is actually printing
-    mockDriver.uploadAndPrint.mockRejectedValue(new Error('ETIMEDOUT'));
+    mockDriver.uploadAndPrint.mockRejectedValue(new Error("ETIMEDOUT"));
     mockDriver.checkIfPrinting.mockResolvedValue(true);
 
     const promise = scheduler._dispatchToPrinter(fakePrinter);
@@ -281,20 +308,20 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
     const jobId = await promise;
 
     expect(jobId).not.toBeNull();
-    const job = db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId);
-    expect(job.status).toBe('printing');
+    const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+    expect(job.status).toBe("printing");
     // Printer should NOT be held when recovery succeeds
-    const printer = db.prepare('SELECT is_held FROM printers WHERE id = 1').get();
+    const printer = db.prepare("SELECT is_held FROM printers WHERE id = 1").get();
     expect(printer.is_held).toBe(0);
   });
 
-  test('leaves job as uploading (not failed) and holds printer when all retries exhausted and not printing', async () => {
+  test("leaves job as uploading (not failed) and holds printer when all retries exhausted and not printing", async () => {
     const filename = `exhaust_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
     const scheduler = new JobScheduler(db, { on: () => {} });
 
-    mockDriver.uploadAndPrint.mockRejectedValue(new Error('ECONNRESET'));
+    mockDriver.uploadAndPrint.mockRejectedValue(new Error("ECONNRESET"));
     mockDriver.checkIfPrinting.mockResolvedValue(false);
 
     const promise = scheduler._dispatchToPrinter(fakePrinter);
@@ -304,19 +331,19 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
     expect(jobId).toBeNull();
     // Job must be left as 'uploading' — operator must confirm via Fleet UI (Job Running / Upload Failed)
     const job = db.prepare("SELECT status FROM jobs ORDER BY id DESC LIMIT 1").get();
-    expect(job.status).toBe('uploading');
+    expect(job.status).toBe("uploading");
     // Printer should be held for operator review
-    const printer = db.prepare('SELECT is_held FROM printers WHERE id = 1').get();
+    const printer = db.prepare("SELECT is_held FROM printers WHERE id = 1").get();
     expect(printer.is_held).toBe(1);
   });
 
-  test('sends a notification when upload retries are exhausted', async () => {
+  test("sends a notification when upload retries are exhausted", async () => {
     const filename = `notif_exhaust_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
     const scheduler = new JobScheduler(db, { on: () => {} });
 
-    mockDriver.uploadAndPrint.mockRejectedValue(new Error('ETIMEDOUT'));
+    mockDriver.uploadAndPrint.mockRejectedValue(new Error("ETIMEDOUT"));
     mockDriver.checkIfPrinting.mockResolvedValue(false);
 
     const promise = scheduler._dispatchToPrinter(fakePrinter);
@@ -329,7 +356,7 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
     expect(msg).toMatch(/failed after/);
   });
 
-  test('retries up to MAX_RETRIES times before giving up', async () => {
+  test("retries up to MAX_RETRIES times before giving up", async () => {
     const filename = `retry_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
@@ -337,7 +364,7 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
 
     // Succeed on the 2nd attempt
     mockDriver.uploadAndPrint
-      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockRejectedValueOnce(new Error("ECONNRESET"))
       .mockResolvedValueOnce(undefined);
 
     const promise = scheduler._dispatchToPrinter(fakePrinter);
@@ -346,8 +373,8 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
 
     expect(jobId).not.toBeNull();
     expect(mockDriver.uploadAndPrint).toHaveBeenCalledTimes(2);
-    const job = db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId);
-    expect(job.status).toBe('printing');
+    const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+    expect(job.status).toBe("printing");
   });
 });
 
@@ -356,8 +383,8 @@ describe('_dispatchToPrinter — upload failure recovery', () => {
 // an upload is still in flight. Without this guard, a slow transfer could cause
 // a retry that immediately triggers a 409 Conflict on the still-running first attempt.
 
-describe('_dispatchToPrinter — upload lock', () => {
-  test('skips dispatch if an upload is already in flight for the same printer', async () => {
+describe("_dispatchToPrinter — upload lock", () => {
+  test("skips dispatch if an upload is already in flight for the same printer", async () => {
     const filename = `lock_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
@@ -365,7 +392,11 @@ describe('_dispatchToPrinter — upload lock', () => {
 
     let resolveUpload;
     // First upload hangs indefinitely until we resolve it
-    mockDriver.uploadAndPrint.mockReturnValueOnce(new Promise(r => { resolveUpload = r; }));
+    mockDriver.uploadAndPrint.mockReturnValueOnce(
+      new Promise((r) => {
+        resolveUpload = r;
+      }),
+    );
 
     // Start first dispatch — it will suspend at the awaited uploadAndPrint.
     // Everything up to _activeUploads.add runs synchronously before the first await,
@@ -383,7 +414,7 @@ describe('_dispatchToPrinter — upload lock', () => {
     await firstDispatch;
   });
 
-  test('allows a second dispatch after the first upload completes', async () => {
+  test("allows a second dispatch after the first upload completes", async () => {
     const filename = `lock2_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
@@ -407,8 +438,8 @@ describe('_dispatchToPrinter — upload lock', () => {
 // such a fresh job — otherwise a second dispatch (e.g. recommission + "scan for jobs"
 // enqueueing the same printer twice) kills the job it just created and re-holds the printer.
 
-describe('_dispatchToPrinter — stale-job grace window', () => {
-  test('does NOT auto-fail a freshly dispatched job when the printer status has not yet caught up', async () => {
+describe("_dispatchToPrinter — stale-job grace window", () => {
+  test("does NOT auto-fail a freshly dispatched job when the printer status has not yet caught up", async () => {
     const filename = `fresh_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
@@ -417,24 +448,26 @@ describe('_dispatchToPrinter — stale-job grace window', () => {
     // Printer is IDLE in the DB (last poll), but a job was just dispatched and is 'printing'.
     db.prepare("UPDATE printers SET status = 'IDLE', is_held = 0 WHERE id = 1").run();
     const now = Date.now();
-    const { lastInsertRowid: jobId } = db.prepare(`
+    const { lastInsertRowid: jobId } = db
+      .prepare(`
       INSERT INTO jobs (part_id, printer_id, gcode_id, parts_per_plate, status, started_at, created_at)
       VALUES (1, 1, 1, 2, 'printing', ?, ?)
-    `).run(now, now);
+    `)
+      .run(now, now);
 
     const result = await scheduler._dispatchToPrinter(fakePrinter);
 
     expect(result).toBeNull();
     // The fresh job must be left intact — not auto-failed
-    const job = db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId);
-    expect(job.status).toBe('printing');
+    const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+    expect(job.status).toBe("printing");
     // Printer must NOT be re-held
-    const printer = db.prepare('SELECT is_held FROM printers WHERE id = 1').get();
+    const printer = db.prepare("SELECT is_held FROM printers WHERE id = 1").get();
     expect(printer.is_held).toBe(0);
     expect(notifications.add).not.toHaveBeenCalled();
   });
 
-  test('auto-fails and holds when the active job is genuinely stale (older than the grace window)', async () => {
+  test("auto-fails and holds when the active job is genuinely stale (older than the grace window)", async () => {
     const filename = `stale_${Date.now()}.bgcode`;
     createTestFile(filename);
     const db = makeDb(filename);
@@ -442,17 +475,19 @@ describe('_dispatchToPrinter — stale-job grace window', () => {
 
     db.prepare("UPDATE printers SET status = 'IDLE', is_held = 0 WHERE id = 1").run();
     const old = Date.now() - 10 * 60 * 1000; // 10 minutes ago — well past the grace window
-    const { lastInsertRowid: jobId } = db.prepare(`
+    const { lastInsertRowid: jobId } = db
+      .prepare(`
       INSERT INTO jobs (part_id, printer_id, gcode_id, parts_per_plate, status, started_at, created_at)
       VALUES (1, 1, 1, 2, 'printing', ?, ?)
-    `).run(old, old);
+    `)
+      .run(old, old);
 
     const result = await scheduler._dispatchToPrinter(fakePrinter);
 
     expect(result).toBeNull();
-    const job = db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId);
-    expect(job.status).toBe('failed');
-    const printer = db.prepare('SELECT is_held FROM printers WHERE id = 1').get();
+    const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+    expect(job.status).toBe("failed");
+    const printer = db.prepare("SELECT is_held FROM printers WHERE id = 1").get();
     expect(printer.is_held).toBe(1);
     expect(notifications.add).toHaveBeenCalledTimes(1);
     expect(notifications.add.mock.calls[0][0]).toMatch(/stale job/);

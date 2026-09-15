@@ -1,22 +1,22 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const Database = require("better-sqlite3");
+const path = require("path");
+const fs = require("fs");
 
-const dataDir = path.join(__dirname, 'data');
+const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const gcodeDir = path.join(__dirname, 'gcode');
+const gcodeDir = path.join(__dirname, "gcode");
 if (!fs.existsSync(gcodeDir)) {
   fs.mkdirSync(gcodeDir, { recursive: true });
 }
 
-const db = new Database(path.join(dataDir, 'farm.db'));
+const db = new Database(path.join(dataDir, "farm.db"));
 
 // Enable WAL mode for better concurrent read performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS printers (
@@ -87,27 +87,71 @@ db.exec(`
 `);
 
 // Migrations for existing installs
-try { db.exec('ALTER TABLE printers ADD COLUMN is_active INTEGER DEFAULT 1'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN decommissioned_at INTEGER'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN decommission_note TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE parts ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN job_name TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN job_progress REAL'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN job_time_remaining INTEGER'); } catch (_) {}
-try { db.exec("ALTER TABLE printers ADD COLUMN serial_number TEXT DEFAULT ''"); } catch (_) {}
-try { db.exec('ALTER TABLE gcodes ADD COLUMN ams_slot INTEGER'); } catch (_) {}
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_printer_started ON jobs(printer_id, started_at DESC)'); } catch (_) {}
-try { db.exec('ALTER TABLE parts ADD COLUMN print_time_seconds INTEGER'); } catch (_) {}
-try { db.exec('ALTER TABLE parts ADD COLUMN material_grams REAL'); } catch (_) {}
-try { db.exec('ALTER TABLE gcodes ADD COLUMN material_grams REAL'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN loaded_material TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE printers ADD COLUMN loaded_color TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE gcodes ADD COLUMN allowed_groups TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE gcodes ADD COLUMN required_material TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE gcodes ADD COLUMN required_color TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE projects ADD COLUMN required_material TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE projects ADD COLUMN required_color TEXT'); } catch (_) {}
-try { db.exec('ALTER TABLE projects ADD COLUMN allowed_groups TEXT'); } catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN is_active INTEGER DEFAULT 1");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN decommissioned_at INTEGER");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN decommission_note TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE parts ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN job_name TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN job_progress REAL");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN job_time_remaining INTEGER");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN serial_number TEXT DEFAULT ''");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE gcodes ADD COLUMN ams_slot INTEGER");
+} catch (_) {}
+try {
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_jobs_printer_started ON jobs(printer_id, started_at DESC)",
+  );
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE parts ADD COLUMN print_time_seconds INTEGER");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE parts ADD COLUMN material_grams REAL");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE gcodes ADD COLUMN material_grams REAL");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN loaded_material TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE printers ADD COLUMN loaded_color TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE gcodes ADD COLUMN allowed_groups TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE gcodes ADD COLUMN required_material TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE gcodes ADD COLUMN required_color TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE projects ADD COLUMN required_material TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE projects ADD COLUMN required_color TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE projects ADD COLUMN allowed_groups TEXT");
+} catch (_) {}
 
 // Printer models — source of truth for which models this farm supports.
 // New installs start empty; operator adds models in Settings.
@@ -122,31 +166,34 @@ try {
 
 try {
   const KNOWN_MODEL_META = {
-    'mk4':             { label: 'MK4',            connector: 'prusa' },
-    'mk4s':            { label: 'MK4S',           connector: 'prusa' },
-    'c1':              { label: 'Core One',        connector: 'prusa' },
-    'c1l':             { label: 'Core 1L',         connector: 'prusa' },
-    'xl':              { label: 'XL',              connector: 'prusa' },
-    'centauri-carbon': { label: 'Centauri Carbon', connector: 'elegoo-centauri' },
-    'x1c':             { label: 'X1 Carbon',       connector: 'bambu' },
-    'p1s':             { label: 'P1S',             connector: 'bambu' },
-    'p1p':             { label: 'P1P',             connector: 'bambu' },
-    'a1':              { label: 'A1',              connector: 'bambu' },
-    'a1-mini':         { label: 'A1 Mini',         connector: 'bambu' },
+    mk4: { label: "MK4", connector: "prusa" },
+    mk4s: { label: "MK4S", connector: "prusa" },
+    c1: { label: "Core One", connector: "prusa" },
+    c1l: { label: "Core 1L", connector: "prusa" },
+    xl: { label: "XL", connector: "prusa" },
+    "centauri-carbon": { label: "Centauri Carbon", connector: "elegoo-centauri" },
+    x1c: { label: "X1 Carbon", connector: "bambu" },
+    p1s: { label: "P1S", connector: "bambu" },
+    p1p: { label: "P1P", connector: "bambu" },
+    a1: { label: "A1", connector: "bambu" },
+    "a1-mini": { label: "A1 Mini", connector: "bambu" },
   };
   // Collect every distinct model already in use across printers + gcodes
-  const inUse = db.prepare(`
+  const inUse = db
+    .prepare(`
     SELECT DISTINCT model AS m FROM printers WHERE model IS NOT NULL AND model != ''
     UNION
     SELECT DISTINCT printer_model AS m FROM gcodes WHERE printer_model IS NOT NULL AND printer_model != ''
-  `).all().map(r => r.m);
+  `)
+    .all()
+    .map((r) => r.m);
 
   const insertModel = db.prepare(
-    'INSERT OR IGNORE INTO printer_models (model_id, label, connector) VALUES (?, ?, ?)'
+    "INSERT OR IGNORE INTO printer_models (model_id, label, connector) VALUES (?, ?, ?)",
   );
   for (const modelId of inUse) {
     const meta = KNOWN_MODEL_META[modelId];
-    insertModel.run(modelId, meta?.label || modelId, meta?.connector || 'prusa');
+    insertModel.run(modelId, meta?.label || modelId, meta?.connector || "prusa");
   }
 } catch (_) {}
 
@@ -168,12 +215,14 @@ try {
 try {
   const now = Date.now();
   const insertGroup = db.prepare(
-    'INSERT OR IGNORE INTO printer_groups (name, created_at) VALUES (?, ?)'
+    "INSERT OR IGNORE INTO printer_groups (name, created_at) VALUES (?, ?)",
   );
 
-  for (const row of db.prepare(
-    "SELECT DISTINCT group_name AS g FROM printers WHERE group_name IS NOT NULL AND group_name != ''"
-  ).all()) {
+  for (const row of db
+    .prepare(
+      "SELECT DISTINCT group_name AS g FROM printers WHERE group_name IS NOT NULL AND group_name != ''",
+    )
+    .all()) {
     insertGroup.run(row.g, now);
   }
 
@@ -183,14 +232,16 @@ try {
   // anywhere to reassign a printer back into. Parsed per row in JS, not one
   // big SQL json_each UNION: a single malformed value must not abort the
   // whole seed and silently leave every other row unrecovered.
-  for (const table of ['gcodes', 'projects']) {
-    const hasColumn = db.prepare(`PRAGMA table_info(${table})`).all()
-      .some((c) => c.name === 'allowed_groups');
+  for (const table of ["gcodes", "projects"]) {
+    const hasColumn = db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .some((c) => c.name === "allowed_groups");
     if (!hasColumn) continue;
 
-    for (const row of db.prepare(
-      `SELECT allowed_groups AS ag FROM ${table} WHERE allowed_groups IS NOT NULL`
-    ).all()) {
+    for (const row of db
+      .prepare(`SELECT allowed_groups AS ag FROM ${table} WHERE allowed_groups IS NOT NULL`)
+      .all()) {
       try {
         const names = JSON.parse(row.ag);
         if (Array.isArray(names)) {
@@ -225,7 +276,10 @@ try {
 
 // Add type_id to filament_colors if missing (existing installs that predate this column)
 try {
-  const hasTypeId = db.prepare("PRAGMA table_info(filament_colors)").all().some(c => c.name === 'type_id');
+  const hasTypeId = db
+    .prepare("PRAGMA table_info(filament_colors)")
+    .all()
+    .some((c) => c.name === "type_id");
   if (!hasTypeId) {
     db.exec(`
       PRAGMA foreign_keys = OFF;
@@ -240,7 +294,7 @@ try {
       ALTER TABLE filament_colors_new RENAME TO filament_colors;
       PRAGMA foreign_keys = ON;
     `);
-    console.log('[db] Migrated filament_colors — added type_id (existing colors cleared)');
+    console.log("[db] Migrated filament_colors — added type_id (existing colors cleared)");
   }
 } catch (_) {}
 
@@ -250,11 +304,16 @@ try {
 } catch (_) {}
 // Seed defaults (INSERT OR IGNORE so existing values are never overwritten)
 try {
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('dispatch_batch_size', '10')").run();
+  db.prepare(
+    "INSERT OR IGNORE INTO settings (key, value) VALUES ('dispatch_batch_size', '10')",
+  ).run();
 } catch (_) {}
 
 // Make jobs.gcode_id nullable so gcodes can be deleted after jobs have run
-const gcodeIdCol = db.prepare("PRAGMA table_info(jobs)").all().find(c => c.name === 'gcode_id');
+const gcodeIdCol = db
+  .prepare("PRAGMA table_info(jobs)")
+  .all()
+  .find((c) => c.name === "gcode_id");
 if (gcodeIdCol && gcodeIdCol.notnull === 1) {
   db.exec(`
     PRAGMA foreign_keys = OFF;
@@ -280,17 +339,19 @@ if (gcodeIdCol && gcodeIdCol.notnull === 1) {
 // printer_events table existed. Runs once per printer (checked via event absence).
 // Uses decommissioned_at as the event timestamp so the timeline is accurate.
 try {
-  const decomms = db.prepare(`
+  const decomms = db
+    .prepare(`
     SELECT id, name, decommissioned_at, decommission_note
     FROM printers
     WHERE is_active = 0 AND decommissioned_at IS NOT NULL
-  `).all();
+  `)
+    .all();
 
   const hasEvent = db.prepare(
-    `SELECT 1 FROM printer_events WHERE printer_id = ? AND event_type = 'decommission' LIMIT 1`
+    `SELECT 1 FROM printer_events WHERE printer_id = ? AND event_type = 'decommission' LIMIT 1`,
   );
   const insertBackfill = db.prepare(
-    `INSERT INTO printer_events (printer_id, event_type, note, created_at) VALUES (?, 'decommission', ?, ?)`
+    `INSERT INTO printer_events (printer_id, event_type, note, created_at) VALUES (?, 'decommission', ?, ?)`,
   );
 
   for (const p of decomms) {

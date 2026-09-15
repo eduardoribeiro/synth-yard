@@ -1,5 +1,5 @@
-const express = require('express');
-const router  = express.Router();
+const express = require("express");
+const router = express.Router();
 
 // Completed job statuses — 'done' is a legacy alias retained for backward compat with older data.
 const DONE_STATUSES = "('finished', 'done')";
@@ -7,14 +7,15 @@ const DONE_STATUSES = "('finished', 'done')";
 module.exports = (db) => {
   // GET /api/dashboard — single endpoint for the TV dashboard
   // Returns stats, full printer list, active projects with parts, and recent activity.
-  router.get('/', (req, res) => {
-    const now    = Date.now();
-    const since  = now - 24 * 60 * 60 * 1000; // rolling 24-hour window
+  router.get("/", (req, res) => {
+    const now = Date.now();
+    const since = now - 24 * 60 * 60 * 1000; // rolling 24-hour window
 
     // ── Printers (same query as GET /api/printers, with last_parts_per_plate
     //    and last_event_at — most recent printer_events timestamp, used by the
     //    "Needs Attention" panel to show how long a printer has been waiting) ──
-    const printers = db.prepare(`
+    const printers = db
+      .prepare(`
       SELECT p.*,
         (SELECT j.parts_per_plate FROM jobs j
          WHERE j.printer_id = p.id AND j.status IN ${DONE_STATUSES}
@@ -24,29 +25,36 @@ module.exports = (db) => {
       FROM printers p
       WHERE p.is_active = 1
       ORDER BY p.name
-    `).all();
+    `)
+      .all();
 
     // Derive fleet stats from the live printer list
-    const printing = printers.filter(p => p.status === 'PRINTING').length;
-    const idle     = printers.filter(p => p.status === 'IDLE' && !p.is_held).length;
+    const printing = printers.filter((p) => p.status === "PRINTING").length;
+    const idle = printers.filter((p) => p.status === "IDLE" && !p.is_held).length;
     // Keep this condition identical to Fleet.jsx, Dashboard.jsx, Printers.jsx (see CLAUDE.md sync pairs).
     const awaiting = printers.filter(
-      p => p.is_held === 1 && (p.status === 'FINISHED' || p.status === 'IDLE' || p.status === 'STOPPED')
+      (p) =>
+        p.is_held === 1 &&
+        (p.status === "FINISHED" || p.status === "IDLE" || p.status === "STOPPED"),
     ).length;
 
     // Parts completed in the last 24 hours (sum of parts_per_plate on finished jobs)
-    const partsToday = db.prepare(`
+    const partsToday = db
+      .prepare(`
       SELECT COALESCE(SUM(parts_per_plate), 0) AS total
       FROM jobs
       WHERE status IN ${DONE_STATUSES} AND finished_at >= ?
-    `).get(since).total;
+    `)
+      .get(since).total;
 
     // ── Active projects with their parts ──────────────────────────────────────
     // Same order as GET /api/projects and the scheduler's dispatch query (see CLAUDE.md
     // sync pairs) so the dashboard's project order matches what actually dispatches next.
-    const activeProjects = db.prepare(`
+    const activeProjects = db
+      .prepare(`
       SELECT * FROM projects WHERE status = 'active' ORDER BY priority ASC, created_at ASC
-    `).all();
+    `)
+      .all();
 
     const elapsedFinishedStmt = db.prepare(`
       SELECT COALESCE(SUM(j.finished_at - j.started_at), 0) AS ms
@@ -86,18 +94,20 @@ module.exports = (db) => {
       ORDER BY parts_printed DESC
     `);
 
-    const projectsWithParts = activeProjects.map(proj => {
-      const parts = db.prepare(`
+    const projectsWithParts = activeProjects.map((proj) => {
+      const parts = db
+        .prepare(`
         SELECT parts.*,
           COALESCE((
             SELECT SUM(j.parts_per_plate) FROM jobs j
             WHERE j.part_id = parts.id AND j.status IN ('uploading', 'printing')
           ), 0) AS active_qty
         FROM parts WHERE project_id = ? ORDER BY sort_order ASC, created_at ASC
-      `).all(proj.id);
+      `)
+        .all(proj.id);
 
-      const finishedMs  = elapsedFinishedStmt.get(proj.id).ms;
-      const printingMs  = elapsedPrintingStmt.get(now, proj.id).ms;
+      const finishedMs = elapsedFinishedStmt.get(proj.id).ms;
+      const printingMs = elapsedPrintingStmt.get(now, proj.id).ms;
       const elapsed_secs = Math.round((finishedMs + printingMs) / 1000);
       const material_used_grams = materialUsedStmt.get(proj.id).grams || null;
       const model_breakdown = modelBreakdownStmt.all(proj.id);
@@ -106,7 +116,8 @@ module.exports = (db) => {
     });
 
     // ── Recent activity: last 12 finished/failed jobs ─────────────────────────
-    const recentActivity = db.prepare(`
+    const recentActivity = db
+      .prepare(`
       SELECT j.id, j.status, j.parts_per_plate, j.finished_at,
              p.name  AS part_name,
              pr.name AS printer_name
@@ -116,7 +127,8 @@ module.exports = (db) => {
       WHERE j.status IN ('finished', 'done', 'failed')
       ORDER BY j.finished_at DESC
       LIMIT 12
-    `).all();
+    `)
+      .all();
 
     res.json({
       stats: {

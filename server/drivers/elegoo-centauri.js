@@ -9,8 +9,8 @@
 
 // Require only the WebSocket class directly — sdcp's main index also loads
 // SDCPPrinterMQTT which requires 'mqtt-server' (an optional peer dep we don't need).
-const SDCPPrinterWS = require('sdcp/SDCPPrinterWS');
-const path = require('path');
+const SDCPPrinterWS = require("sdcp/SDCPPrinterWS");
+const path = require("path");
 
 // Map of printer.id → SDCPPrinterWS instance
 const connections = new Map();
@@ -30,16 +30,17 @@ async function getConnection(printer) {
 
   client.AutoReconnect = 5000; // reconnect every 5s on drop
 
-  client.on('disconnected', () => {
+  client.on("disconnected", () => {
     if (process.env.DEBUG_ELEGOO) console.log(`[elegoo] ${printer.name} disconnected`);
   });
 
-  client.on('reconnected', () => {
+  client.on("reconnected", () => {
     if (process.env.DEBUG_ELEGOO) console.log(`[elegoo] ${printer.name} reconnected`);
   });
 
-  client.on('error', (err) => {
-    if (process.env.DEBUG_ELEGOO) console.warn(`[elegoo] ${printer.name} error:`, err?.message || err);
+  client.on("error", (err) => {
+    if (process.env.DEBUG_ELEGOO)
+      console.warn(`[elegoo] ${printer.name} error:`, err?.message || err);
   });
 
   await client.Connect(printer.ip);
@@ -52,7 +53,9 @@ async function getConnection(printer) {
 function dropConnection(printerId) {
   const client = connections.get(printerId);
   if (client) {
-    try { client.Disconnect?.(); } catch (_) {}
+    try {
+      client.Disconnect?.();
+    } catch (_) {}
     connections.delete(printerId);
   }
 }
@@ -77,20 +80,31 @@ function dropConnection(printerId) {
 // Unrecognised codes: UNKNOWN (not ERROR) so stray transient codes don't hold printers.
 // Add explicit cases above for any new codes observed in debug logs.
 function mapStatus(printInfo) {
-  if (!printInfo) return 'UNKNOWN';
+  if (!printInfo) return "UNKNOWN";
   const code = printInfo.Status ?? printInfo.CurrentStatus;
   switch (code) {
-    case 0:  return 'IDLE';
-    case 1:  return 'PRINTING';
-    case 2:  return 'PAUSED';
-    case 3:  return 'FINISHED'; // stopped — operator must confirm
-    case 4:  return 'FINISHED';
-    case 9:  return 'FINISHED'; // post-completion: CurrentLayer===TotalLayer, Filename cleared
-    case 13: return 'PRINTING'; // active print, layer incrementing (observed on Centauri Carbon)
-    case 16: return 'PRINTING'; // preparing/preheating — normal FDM startup state
-    case 18: return 'PRINTING'; // startup/init state, file loaded, Progress=0 (observed on Centauri Carbon)
-    case 21: return 'PRINTING'; // startup/init state, file loaded (observed on Centauri Carbon)
-    default: return 'UNKNOWN';
+    case 0:
+      return "IDLE";
+    case 1:
+      return "PRINTING";
+    case 2:
+      return "PAUSED";
+    case 3:
+      return "FINISHED"; // stopped — operator must confirm
+    case 4:
+      return "FINISHED";
+    case 9:
+      return "FINISHED"; // post-completion: CurrentLayer===TotalLayer, Filename cleared
+    case 13:
+      return "PRINTING"; // active print, layer incrementing (observed on Centauri Carbon)
+    case 16:
+      return "PRINTING"; // preparing/preheating — normal FDM startup state
+    case 18:
+      return "PRINTING"; // startup/init state, file loaded, Progress=0 (observed on Centauri Carbon)
+    case 21:
+      return "PRINTING"; // startup/init state, file loaded (observed on Centauri Carbon)
+    default:
+      return "UNKNOWN";
   }
 }
 
@@ -110,31 +124,30 @@ async function getStatus(printer) {
     // Log raw status code whenever it maps to something unexpected so we can
     // refine the mapping based on real Centauri Carbon firmware behaviour.
     const rawCode = printInfo?.Status ?? printInfo?.CurrentStatus;
-    if (status === 'UNKNOWN') {
-      console.log(`[elegoo] ${printer.name} raw status code: ${rawCode} → ${status} (full PrintInfo: ${JSON.stringify(printInfo)})`);
+    if (status === "UNKNOWN") {
+      console.log(
+        `[elegoo] ${printer.name} raw status code: ${rawCode} → ${status} (full PrintInfo: ${JSON.stringify(printInfo)})`,
+      );
     }
 
-    const progress = (status === 'PRINTING' || status === 'PAUSED')
-      ? (printInfo?.CurrentTicks != null && printInfo?.TotalTicks > 0
+    const progress =
+      status === "PRINTING" || status === "PAUSED"
+        ? printInfo?.CurrentTicks != null && printInfo?.TotalTicks > 0
           ? Math.round((printInfo.CurrentTicks / printInfo.TotalTicks) * 100)
-          : null)
-      : null;
+          : null
+        : null;
 
-    const timeRemaining = (status === 'PRINTING' || status === 'PAUSED')
-      ? (printInfo?.RemainTime ?? null)
-      : null;
+    const timeRemaining =
+      status === "PRINTING" || status === "PAUSED" ? (printInfo?.RemainTime ?? null) : null;
 
-    const rawFilename = (status === 'PRINTING' || status === 'PAUSED')
-      ? (printInfo?.Filename ?? null)
-      : null;
-    const currentFile = rawFilename
-      ? rawFilename.replace(/^\d+_/, '')
-      : null;
+    const rawFilename =
+      status === "PRINTING" || status === "PAUSED" ? (printInfo?.Filename ?? null) : null;
+    const currentFile = rawFilename ? rawFilename.replace(/^\d+_/, "") : null;
 
     return { status, progress, timeRemaining, currentFile };
   } catch (_) {
     dropConnection(printer.id);
-    return { status: 'OFFLINE', progress: null, timeRemaining: null, currentFile: null };
+    return { status: "OFFLINE", progress: null, timeRemaining: null, currentFile: null };
   }
 }
 
@@ -150,7 +163,7 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 
   await client.UploadFile(gcodeFullPath, {
     ProgressCallback: (progress) => {
-      if (progress.Status === 'Uploading') {
+      if (progress.Status === "Uploading") {
         process.stdout.write(`\r[elegoo] ${printer.name} upload: ${progress.Status}`);
       } else {
         console.log(`[elegoo] ${printer.name} upload: ${progress.Status}`);
@@ -162,7 +175,7 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
 
   // The slicer spec recommends a 1-second delay between upload completion and Start
   // to give the firmware time to close the file before processing the print command.
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   // sdcp's UploadFile uses path.basename(gcodeFullPath) as the on-printer filename.
   // We bypass client.Start() because the sdcp library sends an incomplete payload
@@ -174,12 +187,12 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
     Data: {
       Cmd: 128,
       Data: {
-        Filename:           onPrinterFilename,
-        StartLayer:         0,
+        Filename: onPrinterFilename,
+        StartLayer: 0,
         Calibration_switch: 0,
-        PrintPlatformType:  1,
-        Tlp_Switch:         0,
-        slot_map:           [],
+        PrintPlatformType: 1,
+        Tlp_Switch: 0,
+        slot_map: [],
       },
       From: 1,
     },
@@ -188,12 +201,12 @@ async function uploadAndPrint(printer, gcodeFullPath, filename) {
   const ack = response?.Data?.Data?.Ack;
   if (ack !== 0) {
     const ACK_ERRORS = {
-      1: 'device busy',
-      2: 'file not found on printer',
-      3: 'MD5 checksum mismatch',
-      4: 'file read failed',
-      5: 'file resolution mismatch',
-      6: 'unknown file format or model mismatch',
+      1: "device busy",
+      2: "file not found on printer",
+      3: "MD5 checksum mismatch",
+      4: "file read failed",
+      5: "file resolution mismatch",
+      6: "unknown file format or model mismatch",
     };
     const reason = ACK_ERRORS[ack] || `unknown Ack code ${ack}`;
     throw new Error(`Start rejected by ${printer.name}: ${reason} (Ack=${ack})`);
@@ -221,7 +234,7 @@ async function cancelJob(printer) {
 async function checkIfPrinting(printer) {
   try {
     const { status } = await getStatus(printer);
-    return status === 'PRINTING' || status === 'PAUSED';
+    return status === "PRINTING" || status === "PAUSED";
   } catch (_) {
     return false;
   }

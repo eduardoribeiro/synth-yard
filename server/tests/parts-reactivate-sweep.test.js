@@ -10,17 +10,17 @@
 // the first-ever-registered handler for a given path would run. jest.resetModules() before
 // each require forces a fresh module (and therefore a fresh router) every time.
 
-const request  = require('supertest');
-const express  = require('express');
-const Database = require('better-sqlite3');
+const request = require("supertest");
+const express = require("express");
+const Database = require("better-sqlite3");
 
 let db;
 
 function seedProject(status) {
   const now = Date.now();
-  const row = db.prepare(
-    'INSERT INTO projects (name, status, created_at, updated_at) VALUES (?, ?, ?, ?)'
-  ).run(`Project (${status})`, status, now, now);
+  const row = db
+    .prepare("INSERT INTO projects (name, status, created_at, updated_at) VALUES (?, ?, ?, ?)")
+    .run(`Project (${status})`, status, now, now);
   return row.lastInsertRowid;
 }
 
@@ -28,10 +28,12 @@ function seedProject(status) {
 // /api/parts/:id reopen tests (raising target_qty above completed_qty).
 function seedClosedPart(projectId) {
   const now = Date.now();
-  const row = db.prepare(`
+  const row = db
+    .prepare(`
     INSERT INTO parts (project_id, name, target_qty, completed_qty, status, created_at, updated_at)
     VALUES (?, 'Closed Part', 5, 5, 'closed', ?, ?)
-  `).run(projectId, now, now);
+  `)
+    .run(projectId, now, now);
   return row.lastInsertRowid;
 }
 
@@ -40,16 +42,19 @@ function seedClosedPart(projectId) {
 // module-level router rather than reusing one from a previous call in this file.
 function buildApp(scheduler) {
   jest.resetModules();
-  const partsRouterFactory = require('../routes/parts');
+  const partsRouterFactory = require("../routes/parts");
   const app = express();
   app.use(express.json());
-  app.use('/api/parts', scheduler !== undefined ? partsRouterFactory(db, scheduler) : partsRouterFactory(db));
+  app.use(
+    "/api/parts",
+    scheduler !== undefined ? partsRouterFactory(db, scheduler) : partsRouterFactory(db),
+  );
   return app;
 }
 
 beforeEach(() => {
-  db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,52 +88,52 @@ beforeEach(() => {
   `);
 });
 
-describe('POST /api/parts: sweeps for idle printers on reactivation', () => {
-  test('calls sweepIdlePrinters when adding a part reactivates a completed project', async () => {
+describe("POST /api/parts: sweeps for idle printers on reactivation", () => {
+  test("calls sweepIdlePrinters when adding a part reactivates a completed project", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
-    const projectId = seedProject('completed');
+    const projectId = seedProject("completed");
 
     const res = await request(app)
-      .post('/api/parts')
-      .send({ project_id: projectId, name: 'Sweep Part', target_qty: 1 });
+      .post("/api/parts")
+      .send({ project_id: projectId, name: "Sweep Part", target_qty: 1 });
 
     expect(res.status).toBe(201);
     expect(sweepIdlePrinters).toHaveBeenCalledTimes(1);
   });
 
-  test('does not call sweepIdlePrinters when the project is already active', async () => {
+  test("does not call sweepIdlePrinters when the project is already active", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
-    const projectId = seedProject('active');
+    const projectId = seedProject("active");
 
     const res = await request(app)
-      .post('/api/parts')
-      .send({ project_id: projectId, name: 'Another Part', target_qty: 1 });
+      .post("/api/parts")
+      .send({ project_id: projectId, name: "Another Part", target_qty: 1 });
 
     expect(res.status).toBe(201);
     expect(sweepIdlePrinters).not.toHaveBeenCalled();
   });
 
-  test('does not throw when no scheduler is provided', async () => {
+  test("does not throw when no scheduler is provided", async () => {
     const app = buildApp(null);
-    const projectId = seedProject('completed');
+    const projectId = seedProject("completed");
 
     const res = await request(app)
-      .post('/api/parts')
-      .send({ project_id: projectId, name: 'No Scheduler Part', target_qty: 1 });
+      .post("/api/parts")
+      .send({ project_id: projectId, name: "No Scheduler Part", target_qty: 1 });
 
     expect(res.status).toBe(201);
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-    expect(project.status).toBe('active');
+    const project = db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId);
+    expect(project.status).toBe("active");
   });
 });
 
-describe('PUT /api/parts/:id: sweeps for idle printers when reopening reactivates a project', () => {
-  test('calls sweepIdlePrinters when raising target_qty reactivates a completed project', async () => {
+describe("PUT /api/parts/:id: sweeps for idle printers when reopening reactivates a project", () => {
+  test("calls sweepIdlePrinters when raising target_qty reactivates a completed project", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
-    const projectId = seedProject('completed');
+    const projectId = seedProject("completed");
     const partId = seedClosedPart(projectId);
 
     // Operator raises target_qty above completed_qty; the client sends both fields
@@ -138,31 +143,31 @@ describe('PUT /api/parts/:id: sweeps for idle printers when reopening reactivate
       .send({ completed_qty: 5, target_qty: 10 });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('open');
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-    expect(project.status).toBe('active');
+    expect(res.body.status).toBe("open");
+    const project = db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId);
+    expect(project.status).toBe("active");
     expect(sweepIdlePrinters).toHaveBeenCalledTimes(1);
   });
 
-  test('does not call sweepIdlePrinters when the part stays closed', async () => {
+  test("does not call sweepIdlePrinters when the part stays closed", async () => {
     const sweepIdlePrinters = jest.fn();
     const app = buildApp({ sweepIdlePrinters });
-    const projectId = seedProject('completed');
+    const projectId = seedProject("completed");
     const partId = seedClosedPart(projectId);
 
     // completed_qty still meets target, part stays closed, project stays completed.
     const res = await request(app)
       .put(`/api/parts/${partId}`)
-      .send({ name: 'Renamed, still closed' });
+      .send({ name: "Renamed, still closed" });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('closed');
+    expect(res.body.status).toBe("closed");
     expect(sweepIdlePrinters).not.toHaveBeenCalled();
   });
 
-  test('does not throw when no scheduler is provided', async () => {
+  test("does not throw when no scheduler is provided", async () => {
     const app = buildApp(null);
-    const projectId = seedProject('completed');
+    const projectId = seedProject("completed");
     const partId = seedClosedPart(projectId);
 
     const res = await request(app)
@@ -170,7 +175,7 @@ describe('PUT /api/parts/:id: sweeps for idle printers when reopening reactivate
       .send({ completed_qty: 5, target_qty: 10 });
 
     expect(res.status).toBe(200);
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-    expect(project.status).toBe('active');
+    const project = db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId);
+    expect(project.status).toBe("active");
   });
 });
