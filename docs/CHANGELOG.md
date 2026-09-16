@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-09-16: begin server TypeScript migration
+
+The server can now execute TypeScript directly without changing its CommonJS import behavior or relocating its persistent data paths. Jest transforms TypeScript tests alongside the existing JavaScript suite. The first converted modules are the low-risk notification store and persistent event helper, with a typed notification regression test proving the test path. Scheduler and driver behavior are unchanged in this initial migration slice.
+
+### Changes
+- `package.json`, `pnpm-lock.yaml`, `Dockerfile`: added the `tsx` server runtime and `ts-jest` test transformer, then routed development, production, and Docker server startup through `tsx`.
+- `jest.config.cjs`, `tsconfig.test.json`: configured Jest to run `.ts` tests with `ts-jest` while retaining JavaScript test support.
+- `server/notifications.ts`, `server/events.ts`, `server/http.ts`, `server/backup.ts`: converted low-risk server helpers to TypeScript with explicit notification, event, HTTP, and backup boundary types.
+- `server/tests/notifications.test.ts`, `server/tests/http.test.ts`, `server/tests/poller.test.ts`: added or converted typed regression coverage for notification behavior, HTTP transport behavior, and poller FINISHED, missed-finish, and PRINTING transitions.
+- `server/poller.ts`: converted the poller to TypeScript with typed database, driver, printer, and status boundaries while preserving hold, event, and progress persistence behavior.
+- `server/drivers/prusa.ts`, `server/drivers/octoprint.ts`: converted the PrusaLink and OctoPrint drivers to TypeScript from their official API documentation while preserving status, upload, cancellation, conflict, and timeout behavior. These conversions have not been validated on physical printer hardware.
+- `server/drivers/klipper.ts`: converted the Klipper Moonraker driver to TypeScript using Moonraker's official printer and file-manager API documentation. The required object-query keys, multipart `print=true` field, cancellation endpoint, status mapping, remaining-time estimate, and timeouts are unchanged. This conversion has not yet been validated on physical Klipper or Moonraker hardware.
+- `docs/tooling.md`, `docs/poller.md`, `README.md`: documented the server and test TypeScript execution paths.
+
+---
+
 ## 2026-09-15: add OXC tooling and gradual TypeScript support
 
 Synth Yard now has a shared, fast code-quality baseline for the Node server and React client. OXC supplies formatting and linting commands scoped to `server/` and `client/src/`, while strict no-emit TypeScript configurations allow files to move from JavaScript to TypeScript incrementally without changing production runtime behavior. Existing JavaScript remains unchecked during the migration, so current behavior remains stable while new TypeScript code receives strict validation.

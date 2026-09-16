@@ -1,8 +1,9 @@
 const { HttpError, requestJson, requestEmpty, requestRaw, withQuery } = require("../http");
 
 const originalFetch = global.fetch;
+const fetchMock = jest.fn();
 
-function jsonResponse(body, status = 200, statusText = "OK") {
+function jsonResponse(body: unknown, status = 200, statusText = "OK") {
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -32,7 +33,8 @@ describe("withQuery", () => {
 
 describe("requestJson", () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
+    fetchMock.mockReset();
+    global.fetch = fetchMock as typeof fetch;
   });
 
   afterEach(() => {
@@ -40,7 +42,7 @@ describe("requestJson", () => {
   });
 
   test("sends headers, query values, and the configured timeout signal", async () => {
-    global.fetch.mockResolvedValueOnce(jsonResponse({ state: "IDLE" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ state: "IDLE" }));
 
     await expect(
       requestJson("http://printer.local/status", {
@@ -61,13 +63,13 @@ describe("requestJson", () => {
   });
 
   test("returns null for a successful empty response", async () => {
-    global.fetch.mockResolvedValueOnce(jsonResponse(null, 204, "No Content"));
+    fetchMock.mockResolvedValueOnce(jsonResponse(null, 204, "No Content"));
 
     await expect(requestJson("http://printer.local/status")).resolves.toBeNull();
   });
 
   test("throws an HttpError with the response status and body for non-success responses", async () => {
-    global.fetch.mockResolvedValueOnce(jsonResponse({ error: "transfer busy" }, 409, "Conflict"));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "transfer busy" }, 409, "Conflict"));
 
     await expect(requestJson("http://printer.local/upload")).rejects.toMatchObject({
       name: "HttpError",
@@ -78,7 +80,7 @@ describe("requestJson", () => {
 
   test("does not wrap network failures", async () => {
     const networkError = new Error("connect ECONNREFUSED");
-    global.fetch.mockRejectedValueOnce(networkError);
+    fetchMock.mockRejectedValueOnce(networkError);
 
     await expect(requestJson("http://printer.local/status")).rejects.toBe(networkError);
   });
@@ -86,7 +88,8 @@ describe("requestJson", () => {
 
 describe("requestEmpty and requestRaw", () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
+    fetchMock.mockReset();
+    global.fetch = fetchMock as typeof fetch;
   });
   afterEach(() => {
     global.fetch = originalFetch;
@@ -99,19 +102,19 @@ describe("requestEmpty and requestRaw", () => {
       statusText: "OK",
       arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)),
     };
-    global.fetch.mockResolvedValueOnce(response);
+    fetchMock.mockResolvedValueOnce(response);
     await expect(
       requestEmpty("http://printer.local/upload", { method: "PUT" }),
     ).resolves.toBeUndefined();
     expect(response.arrayBuffer).toHaveBeenCalledTimes(1);
 
-    global.fetch.mockResolvedValueOnce(response);
+    fetchMock.mockResolvedValueOnce(response);
     await expect(requestRaw("http://printer.local/download")).resolves.toBe(response);
   });
 
   test("enables duplex mode for a Node readable upload stream", async () => {
     const { Readable } = require("stream");
-    global.fetch.mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
       statusText: "OK",

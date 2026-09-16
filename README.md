@@ -65,6 +65,7 @@ K2/K2 Plus and CR-M4 are not supported by this connector.
 | [Vite](https://vitejs.dev) | Build tool and dev server |
 | [TypeScript](https://www.typescriptlang.org) | Gradual static typing for client and server migrations |
 | [OXC](https://oxc.rs) | Fast linting and code formatting |
+| [tsx](https://tsx.is) | TypeScript execution for the Node server during migration |
 
 ### Data
 | Technology | Role |

@@ -22,14 +22,14 @@
   },
   "scripts": {
     "dev": "concurrently \"pnpm run server\" \"pnpm run client\"",
-    "server": "node server/index.js",
+    "server": "tsx watch server/index.js",
     "client": "pnpm --dir client dev",
     "build": "pnpm --dir client build",
     "format": "oxfmt --check server client/src",
     "format:write": "oxfmt server client/src",
     "lint": "oxlint --jest-plugin --node-plugin --react-plugin server client/src",
     "lint:fix": "oxlint --fix --jest-plugin --node-plugin --react-plugin server client/src",
-    "start": "node server/index.js",
+    "start": "tsx server/index.js",
     "test": "jest --testPathPatterns=server/tests",
     "typecheck": "tsc -p tsconfig.json && pnpm --dir client typecheck"
   },
@@ -41,7 +41,8 @@
     "mqtt": "^5.15.1",
     "multer": "^2.2.0",
     "papaparse": "^5.4.1",
-    "sdcp": "^0.5.4"
+    "sdcp": "^0.5.4",
+    "tsx": "^4.23.13"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
@@ -54,7 +55,8 @@
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "supertest": "^7.2.2",
-    "typescript": "^7.0.2"
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=26.0.0 <27"

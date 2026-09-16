@@ -2,11 +2,11 @@
 
 ## Purpose
 
-`server/poller.js` implements the printer status polling loop. It queries every active printer's PrusaLink API concurrently on a fixed interval, updates the database when status changes, and emits events the job scheduler hooks into.
+`server/poller.ts` implements the printer status polling loop. It queries every active printer through its registered driver concurrently on a fixed interval, updates the database when status changes, and emits events the job scheduler hooks into.
 
 ## Key File
 
-`server/poller.js` — exports the `PrinterPoller` class.
+`server/poller.ts` exports the `PrinterPoller` class.
 
 ## Architecture
 

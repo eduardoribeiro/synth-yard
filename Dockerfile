@@ -32,7 +32,7 @@ COPY server ./server
 COPY --from=client-build /app/client/dist ./client/dist
 RUN mkdir -p server/data server/gcode
 EXPOSE 3000
-CMD ["node", "server/index.js"]
+CMD ["node_modules/.bin/tsx", "server/index.js"]
 
 # Source is bind-mounted by docker-compose; dependency volumes use Linux builds.
 FROM deps AS dev

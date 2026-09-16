@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "types": ["jest", "node"]
+  },
+  "include": ["server/**/*.js", "server/**/*.ts"],
+  "exclude": ["server/data", "server/gcode"]
+}
