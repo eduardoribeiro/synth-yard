@@ -34,7 +34,7 @@
     "typecheck": "tsc -p tsconfig.json && pnpm --dir client typecheck"
   },
   "dependencies": {
-    "basic-ftp": "^5.2.1",
+    "basic-ftp": "^6.2.4",
     "better-sqlite3": "^13.0.3",
     "concurrently": "^8.2.2",
     "express": "^4.19.2",
